@@ -1,0 +1,523 @@
+# Implementation Plan: Shah Sports E-Commerce Platform
+
+## Overview
+
+This implementation plan converts the existing multi-vendor e-commerce platform into a single-vendor sports equipment store. Tasks are organized to build foundational components first, then layer on features incrementally. Each task builds on previous work to ensure no orphaned code.
+
+## Tasks
+
+- [x] 1. Database Schema Updates - Core Tables
+  - [x] 1.1 Update users migration to remove vendor types and simplify to admin/customer
+    - Modify user_type enum to only allow 'admin' and 'customer'
+    - Add phone field to users table
+    - Remove vendor-related fields
+    - _Requirements: 1.1, 1.2_
+  - [x] 1.2 Update categories migration with slug, SEO fields, and improved hierarchy
+    - Add slug, description, image, sort_order, is_active fields
+    - Add meta_title, meta_description for SEO
+    - Update parent reference to use proper foreign key
+    - _Requirements: 2.1, 2.2, 2.3_
+  - [x] 1.3 Update brands migration - remove shop reference
+    - Remove shop_id foreign key
+    - Add slug, sort_order, is_active fields
+    - _Requirements: 4.1, 4.2_
+  - [x] 1.4 Update product_models migration - add brand relationship
+    - Remove shop_id, add brand_id foreign key
+    - Add timestamps
+    - _Requirements: 4.3_
+  - [x] 1.5 Create shipping_classes migration
+    - Create table with name, slug, description
+    - _Requirements: 6.3_
+
+- [x] 2. Database Schema Updates - Products and Variations
+  - [x] 2.1 Update products migration - remove vendor references, add new fields
+    - Remove vendor_shop_id, variation_id
+    - Add shipping_class_id, compare_price, cost_price, low_stock_threshold
+    - Add meta_title, meta_description, meta_keywords
+    - Update status enum
+    - _Requirements: 3.1, 3.5, 3.6, 3.7_
+  - [x] 2.2 Create product_variations migration
+    - Create table with product_id, sku, price, quantity, is_default
+    - _Requirements: 3.2, 3.3_
+  - [x] 2.3 Create variation_values migration
+    - Create pivot table linking product_variations to variation_options
+    - _Requirements: 3.2_
+  - [x] 2.4 Update product_images migration if needed
+    - Ensure is_primary field exists
+    - _Requirements: 3.4_
+
+- [x] 3. Database Schema Updates - Orders and Payments
+  - [x] 3.1 Update orders migration - add POS support and remove vendor references
+    - Add order_number, order_type, coupon_id
+    - Add subtotal, discount_amount, tax_amount
+    - Add customer_name, customer_email, customer_phone for POS
+    - Add shipping_method enum with shah_sports_team and pathao_courier
+    - Update status enum
+    - _Requirements: 7.1, 7.2, 7.4, 8.3, 8.4_
+  - [x] 3.2 Update order_items migration - remove vendor reference, add variation support
+    - Remove vendor_shop_id
+    - Add product_variation_id, product_name, variation_details JSON
+    - Add unit_price, total_price
+    - _Requirements: 7.1_
+  - [x] 3.3 Update payments migration - add new payment methods
+    - Update payment_method enum to include ssl_commerz, bkash, nagad, manual
+    - Add gateway_response JSON, paid_at timestamp
+    - _Requirements: 17.1, 17.2, 17.4_
+  - [x] 3.4 Create invoices migration
+    - Create table with order_id, invoice_number, dates, amounts, pdf_path
+    - _Requirements: 18.1, 18.2, 18.5_
+
+- [x] 4. Database Schema Updates - Promotions and Coupons
+  - [x] 4.1 Update promotions migration - add targeting and scheduling
+    - Add promotion_type enum, applies_to, apply_level
+    - Add starts_at, ends_at timestamps, priority
+    - _Requirements: 9.1, 9.2, 9.4, 9.5_
+  - [x] 4.2 Create promotion_brands and promotion_categories pivot tables
+    - _Requirements: 9.5_
+  - [x] 4.3 Create coupons migration
+    - Create table with code, discount_type, discount_value
+    - Add applies_to, usage_limit, once_per_customer
+    - Add starts_at, expires_at
+    - _Requirements: 10.1, 10.2, 10.3, 10.5_
+  - [x] 4.4 Create coupon pivot tables (coupon_products, coupon_brands, coupon_categories)
+    - _Requirements: 10.4_
+  - [x] 4.5 Create coupon_usages migration
+    - Track coupon_id, user_id, order_id, customer_email, discount_applied
+    - _Requirements: 10.6_
+
+- [x] 5. Database Schema Updates - Shipping
+  - [x] 5.1 Update shipping_rates migration
+    - Add name, shipping_class_id
+    - Update method enum to shah_sports_team and pathao_courier
+    - Add base_cost, is_active
+    - _Requirements: 6.1, 6.2_
+  - [x] 5.2 Review and update weight_cost_rules and weight_cost_rule_items
+    - Ensure proper relationship with shipping_rates
+    - _Requirements: 6.4_
+
+- [x] 6. Database Schema Updates - Inventory and Returns
+  - [x] 6.1 Create inventory_logs migration
+    - Track product_id, product_variation_id, quantity changes
+    - Add reason enum, reference_type, reference_id, notes
+    - _Requirements: 5.5_
+  - [x] 6.2 Update returns migration - fix foreign key and add fields
+    - Fix order_item_id foreign key (currently points to orders)
+    - Add quantity, reason enum, reason_details
+    - _Requirements: 12.4, 12.5_
+  - [x] 6.3 Update refunds migration
+    - Add return_id, refund_type, processed_at
+    - Update refund_method enum
+    - _Requirements: 12.3, 12.4_
+
+- [x] 7. Database Schema Updates - Reviews, Campaigns, CMS
+  - [x] 7.1 Update reviews migration - remove shop reference
+    - Remove shop_id foreign key
+    - Add title, helpful_count, admin_response
+    - _Requirements: 13.1, 13.3, 13.5_
+  - [x] 7.2 Create review_helpful pivot table
+    - Track user_id, review_id for helpful votes
+    - _Requirements: 13.5_
+  - [x] 7.3 Create campaigns migration
+    - Add name, subject, content, campaign_type, target_type
+    - Add scheduling and tracking fields
+    - _Requirements: 11.1, 11.2, 11.5_
+  - [x] 7.4 Create campaign_recipients migration
+    - Track campaign_id, user_id, email, status, timestamps
+    - _Requirements: 11.3_
+  - [x] 7.5 Update store_policies migration - remove shop reference
+    - Remove user_id, shop_id, is_default
+    - Add title, slug
+    - Update policy_type enum
+    - _Requirements: 14.1_
+  - [x] 7.6 Create cms_pages migration
+    - Add title, slug, content, meta fields, is_active
+    - _Requirements: 14.2, 14.4_
+  - [x] 7.7 Update promotional_banners migration
+    - Rename to banners, add subtitle, position enum
+    - Add starts_at, ends_at, is_active
+    - _Requirements: 15.1, 15.2, 15.3_
+
+- [x] 8. Checkpoint - Database Migrations
+  - Run all migrations and verify schema
+  - Ensure all tests pass, ask the user if questions arise.
+
+- [x] 9. Update Eloquent Models - Core
+  - [x] 9.1 Update User model
+    - Update fillable, casts, user_type accessor
+    - Add relationships: profile, addresses, orders, reviews, wishlists
+    - Add isAdmin(), isCustomer() helper methods
+    - _Requirements: 1.1, 1.4_
+  - [x] 9.2 Update Category model
+    - Add slug generation, parent/children relationships
+    - Add products relationship, scopeActive
+    - _Requirements: 2.1, 2.2, 2.5_
+  - [x] 9.3 Update Brand model
+    - Remove shop relationship
+    - Add slug generation, products and models relationships
+    - _Requirements: 4.1, 4.2_
+  - [x] 9.4 Update ProductModel model
+    - Add brand relationship, remove shop
+    - _Requirements: 4.3_
+  - [x] 9.5 Create ShippingClass model
+    - Add products relationship
+    - _Requirements: 6.3_
+
+- [x] 10. Update Eloquent Models - Products
+  - [x] 10.1 Update Product model
+    - Remove vendor relationships
+    - Add shippingClass, variations relationships
+    - Add scopeActive, scopeFeatured, scopeTrending
+    - Add getStockStatusAttribute accessor
+    - _Requirements: 3.1, 3.2, 3.6, 5.6_
+  - [x] 10.2 Create ProductVariation model
+    - Add product, variationValues relationships
+    - Add stock management methods
+    - _Requirements: 3.2, 3.3_
+  - [x] 10.3 Create VariationValue model
+    - Add productVariation, variationOption relationships
+    - _Requirements: 3.2_
+  - [ ]* 10.4 Write property test for product variation inventory independence
+    - **Property 7: Product Variation Inventory Independence**
+    - **Validates: Requirements 3.2, 3.3**
+
+- [x] 11. Update Eloquent Models - Orders
+  - [x] 11.1 Update Order model
+    - Remove vendor relationships
+    - Add coupon, invoice relationships
+    - Add order number generation
+    - Add calculateTotals method
+    - Add isPosOrder(), isOnlineOrder() helpers
+    - _Requirements: 7.1, 7.4, 7.5, 8.4_
+  - [x] 11.2 Update OrderItem model
+    - Remove vendor relationship
+    - Add productVariation relationship
+    - _Requirements: 7.1_
+  - [x] 11.3 Create Invoice model
+    - Add order relationship
+    - Add invoice number generation
+    - _Requirements: 18.1, 18.5_
+  - [ ]* 11.4 Write property test for order total calculation
+    - **Property 16: Order Total Calculation**
+    - **Validates: Requirements 7.5**
+  - [ ]* 11.5 Write property test for order number uniqueness
+    - **Property 17: Order Number Uniqueness**
+    - **Validates: Requirements 7.4**
+
+- [x] 12. Update Eloquent Models - Promotions and Coupons
+  - [x] 12.1 Update Promotion model
+    - Add products, brands, categories relationships
+    - Add scopeActive, isValidNow methods
+    - Add calculateDiscount method
+    - _Requirements: 9.1, 9.4, 9.5_
+  - [x] 12.2 Create Coupon model
+    - Add products, brands, categories, usages relationships
+    - Add isValid, canBeUsedBy methods
+    - Add calculateDiscount method
+    - _Requirements: 10.1, 10.3, 10.4, 10.5_
+  - [x] 12.3 Create CouponUsage model
+    - Add coupon, user, order relationships
+    - _Requirements: 10.6_
+  - [ ]* 12.4 Write property test for coupon single use per email
+    - **Property 24: Coupon Single Use Per Email**
+    - **Validates: Requirements 10.3**
+  - [ ]* 12.5 Write property test for promotion non-stacking
+    - **Property 22: Promotion Non-Stacking**
+    - **Validates: Requirements 9.3**
+
+- [x] 13. Update Eloquent Models - Shipping and Inventory
+  - [x] 13.1 Update ShippingRate model
+    - Add shippingClass, weightCostRules relationships
+    - Add calculateCost method
+    - _Requirements: 6.2, 6.4_
+  - [x] 13.2 Create InventoryLog model
+    - Add product, productVariation, createdBy relationships
+    - _Requirements: 5.5_
+  - [ ]* 13.3 Write property test for inventory order relationship
+    - **Property 10: Inventory Order Relationship**
+    - **Validates: Requirements 5.3, 5.4, 8.7, 12.6**
+
+- [x] 14. Update Eloquent Models - Reviews, Campaigns, CMS
+  - [x] 14.1 Update Review model
+    - Remove shop relationship
+    - Add helpfulUsers relationship
+    - Add scopeApproved, scopePending
+    - _Requirements: 13.1, 13.3_
+  - [x] 14.2 Create Campaign model
+    - Add recipients relationship
+    - Add scheduling and status methods
+    - _Requirements: 11.1, 11.2, 11.5_
+  - [x] 14.3 Create CampaignRecipient model
+    - Add campaign, user relationships
+    - _Requirements: 11.3_
+  - [x] 14.4 Update StorePolicy model
+    - Remove shop relationship
+    - Add slug generation
+    - _Requirements: 14.1_
+  - [x] 14.5 Create CmsPage model
+    - Add slug generation, scopeActive
+    - _Requirements: 14.2_
+  - [x] 14.6 Update Banner model (rename from PromotionalBanner)
+    - Add scheduling scopes
+    - _Requirements: 15.1, 15.3_
+  - [ ]* 14.7 Write property test for review rating range
+    - **Property 31: Review Rating Range**
+    - **Validates: Requirements 13.1**
+
+- [x] 15. Checkpoint - Models Complete
+  - Verify all model relationships work correctly
+  - Ensure all tests pass, ask the user if questions arise.
+
+- [x] 16. Implement Services - User and Authentication
+  - [x] 16.1 Create UserService
+    - Implement register, authenticate, updateProfile, deactivate
+    - Implement sendVerificationEmail, resetPassword
+    - _Requirements: 1.2, 1.3, 1.5, 1.6_
+  - [ ]* 16.2 Write property test for authentication correctness
+    - **Property 3: Authentication Correctness**
+    - **Validates: Requirements 1.5**
+
+- [x] 17. Implement Services - Catalog
+  - [x] 17.1 Create CatalogService
+    - Implement createProduct, updateProduct, getProductWithVariations
+    - Implement searchProducts, getProductsByCategory, getProductsByBrand
+    - _Requirements: 3.1, 4.4_
+  - [x] 17.2 Create VariationService
+    - Implement createVariation, updateStock, getAvailableOptions
+    - _Requirements: 3.2, 3.3_
+  - [ ]* 17.3 Write property test for inactive product visibility
+    - **Property 8: Inactive Product Visibility**
+    - **Validates: Requirements 3.6**
+
+- [x] 18. Implement Services - Inventory
+  - [x] 18.1 Create InventoryService
+    - Implement checkAvailability, reserveStock, releaseStock
+    - Implement adjustStock with logging
+    - Implement getLowStockProducts
+    - _Requirements: 5.1, 5.2, 5.3, 5.4, 5.5_
+  - [ ]* 18.2 Write property test for stock status calculation
+    - **Property 13: Stock Status Calculation**
+    - **Validates: Requirements 5.6**
+  - [ ]* 18.3 Write property test for inventory adjustment audit
+    - **Property 12: Inventory Adjustment Audit**
+    - **Validates: Requirements 5.5**
+
+- [x] 19. Implement Services - Shipping
+  - [x] 19.1 Create ShippingService
+    - Implement calculateShippingCost with weight-based rules
+    - Implement getAvailableMethods
+    - Implement assignTrackingNumber
+    - _Requirements: 6.1, 6.2, 6.4, 6.5_
+  - [ ]* 19.2 Write property test for shipping cost calculation
+    - **Property 14: Shipping Cost Calculation**
+    - **Validates: Requirements 6.2, 6.4**
+  - [ ]* 19.3 Write property test for free shipping application
+    - **Property 15: Free Shipping Application**
+    - **Validates: Requirements 6.6**
+
+- [x] 20. Implement Services - Promotions and Coupons
+  - [x] 20.1 Create PromotionService
+    - Implement getActivePromotions, applyPromotion
+    - Implement getBestPromotion (non-stacking logic)
+    - _Requirements: 9.1, 9.2, 9.3, 9.4_
+  - [x] 20.2 Create CouponService
+    - Implement validateCoupon, applyCoupon
+    - Implement recordCouponUsage
+    - Check once-per-email restriction
+    - _Requirements: 10.3, 10.4, 10.5, 10.6_
+  - [ ]* 20.3 Write property test for coupon expiration validation
+    - **Property 25: Coupon Expiration Validation**
+    - **Validates: Requirements 10.5**
+  - [ ]* 20.4 Write property test for promotion date validity
+    - **Property 23: Promotion Date Validity**
+    - **Validates: Requirements 9.4**
+
+- [x] 21. Implement Services - Orders
+  - [x] 21.1 Create OrderService
+    - Implement createOrder for online checkout
+    - Implement createPosOrder for in-store sales
+    - Implement updateStatus, cancelOrder
+    - Integrate inventory, promotion, coupon services
+    - _Requirements: 7.1, 7.2, 7.6, 8.1, 8.2, 8.3, 8.4_
+  - [ ]* 21.2 Write property test for POS order marking
+    - **Property 19: POS Order Marking**
+    - **Validates: Requirements 8.4**
+
+- [x] 22. Implement Services - Payments and Invoices
+  - [x] 22.1 Create PaymentService
+    - Implement processPayment for SSL gateway
+    - Implement recordManualPayment for POS
+    - Implement handlePaymentCallback
+    - _Requirements: 17.1, 17.2, 17.3, 17.5_
+  - [x] 22.2 Create InvoiceService
+    - Implement generateInvoice with PDF
+    - Implement sendInvoiceEmail
+    - Implement regenerateInvoice
+    - _Requirements: 18.1, 18.2, 18.3, 18.4_
+  - [ ]* 22.3 Write property test for invoice number sequence
+    - **Property 37: Invoice Number Sequence**
+    - **Validates: Requirements 18.5**
+  - [ ]* 22.4 Write property test for invoice data completeness
+    - **Property 38: Invoice Data Completeness**
+    - **Validates: Requirements 18.2**
+  - [ ]* 22.5 Write property test for payment status order update
+    - **Property 36: Payment Status Order Update**
+    - **Validates: Requirements 17.3**
+
+- [x] 23. Implement Services - Returns and Refunds
+  - [x] 23.1 Create ReturnService
+    - Implement createReturnRequest, approveReturn, rejectReturn
+    - Implement processReturn with inventory restoration
+    - _Requirements: 12.2, 12.5, 12.6_
+  - [x] 23.2 Create RefundService
+    - Implement createRefund, processRefund
+    - Support partial refunds
+    - _Requirements: 12.3, 12.4_
+  - [ ]* 23.3 Write property test for refund method default
+    - **Property 29: Refund Method Default**
+    - **Validates: Requirements 12.3**
+
+- [x] 24. Implement Services - Reviews
+  - [x] 24.1 Create ReviewService
+    - Implement createReview with purchase verification
+    - Implement approveReview, rejectReview
+    - Implement markHelpful, calculateAverageRating
+    - _Requirements: 13.1, 13.2, 13.3, 13.4, 13.5_
+  - [ ]* 24.2 Write property test for review purchase verification
+    - **Property 32: Review Purchase Verification**
+    - **Validates: Requirements 13.2**
+  - [ ]* 24.3 Write property test for average rating calculation
+    - **Property 33: Average Rating Calculation**
+    - **Validates: Requirements 13.4**
+
+- [x] 25. Implement Services - Campaigns
+  - [x] 25.1 Create CampaignService
+    - Implement createCampaign, getTargetCustomers
+    - Implement sendCampaign with queue
+    - Implement trackEmailOpen, getCampaignStats
+    - _Requirements: 11.1, 11.2, 11.3, 11.4, 11.5_
+  - [ ]* 25.2 Write property test for campaign recipient targeting
+    - **Property 27: Campaign Recipient Targeting**
+    - **Validates: Requirements 11.2**
+
+- [x] 26. Checkpoint - Services Complete
+  - Run all service tests
+  - Ensure all tests pass, ask the user if questions arise.
+
+- [x] 27. Implement Controllers - Admin
+  - [x] 27.1 Create Admin UserController
+    - List, view, edit, deactivate customers
+    - _Requirements: 1.4_
+  - [x] 27.2 Create Admin CategoryController
+    - CRUD operations with hierarchy support
+    - _Requirements: 2.1, 2.2, 2.3, 2.4_
+  - [x] 27.3 Create Admin ProductController
+    - CRUD with variations, images, SEO
+    - _Requirements: 3.1, 3.2, 3.4, 3.7_
+  - [x] 27.4 Create Admin BrandController and ModelController
+    - CRUD operations
+    - _Requirements: 4.1, 4.3_
+  - [x] 27.5 Create Admin OrderController
+    - List, view, update status, cancel
+    - _Requirements: 7.6_
+  - [x] 27.6 Create Admin POSController
+    - Create POS orders, apply discounts
+    - _Requirements: 8.1, 8.2, 8.3_
+  - [x] 27.7 Create Admin PromotionController
+    - CRUD with targeting options
+    - _Requirements: 9.1, 9.4, 9.5_
+  - [x] 27.8 Create Admin CouponController
+    - CRUD with usage tracking
+    - _Requirements: 10.1, 10.2_
+  - [x] 27.9 Create Admin ShippingController
+    - Manage rates, classes, weight rules
+    - _Requirements: 6.1, 6.3, 6.4_
+  - [x] 27.10 Create Admin InventoryController
+    - View stock, adjust inventory, view logs
+    - _Requirements: 5.1, 5.2, 5.5_
+  - [x] 27.11 Create Admin ReturnController and RefundController
+    - Process returns and refunds
+    - _Requirements: 12.3, 12.5_
+  - [x] 27.12 Create Admin ReviewController
+    - Approve, reject, respond to reviews
+    - _Requirements: 13.3_
+  - [x] 27.13 Create Admin CampaignController
+    - Create, schedule, send campaigns
+    - _Requirements: 11.1, 11.2, 11.5_
+  - [x] 27.14 Create Admin ContentController
+    - Manage policies, CMS pages, banners
+    - _Requirements: 14.1, 14.2, 15.1, 15.2_
+  - [x] 27.15 Create Admin ReportController
+    - Sales, product, customer, inventory reports
+    - _Requirements: 16.1, 16.2, 16.3, 16.4, 16.5_
+
+- [x] 28. Implement Controllers - Customer/Public
+  - [x] 28.1 Create AuthController
+    - Register, login, logout, password reset
+    - _Requirements: 1.2, 1.3, 1.5, 1.6_
+  - [x] 28.2 Create CatalogController
+    - Browse categories, products, search, filter
+    - _Requirements: 2.5, 3.6, 4.4_
+  - [x] 28.3 Create CartController
+    - Add, update, remove items
+    - Apply coupons
+    - _Requirements: 10.4_
+  - [x] 28.4 Create CheckoutController
+    - Process checkout, calculate shipping
+    - _Requirements: 7.1, 6.2_
+  - [x] 28.5 Create PaymentController
+    - Handle payment gateway callbacks
+    - _Requirements: 17.1, 17.3, 17.5_
+  - [x] 28.6 Create OrderController (Customer)
+    - View order history, track orders
+    - _Requirements: 6.5_
+  - [x] 28.7 Create ReviewController (Customer)
+    - Submit reviews, mark helpful
+    - _Requirements: 13.1, 13.2, 13.5_
+  - [x] 28.8 Create ReturnController (Customer)
+    - Request returns
+    - _Requirements: 12.5_
+  - [x] 28.9 Create PageController
+    - Display policies, CMS pages
+    - _Requirements: 14.1, 14.2_
+
+- [x] 29. Implement Email Notifications
+  - [x] 29.1 Create order notification emails
+    - Order confirmation, status updates
+    - _Requirements: 7.3_
+  - [x] 29.2 Create invoice email with PDF attachment
+    - _Requirements: 18.3_
+  - [x] 29.3 Create campaign email templates
+    - _Requirements: 11.4_
+  - [x] 29.4 Create user verification and password reset emails
+    - _Requirements: 1.3, 1.6_
+
+- [x] 30. Implement Event Listeners
+  - [x] 30.1 Create OrderPlaced listener
+    - Decrement inventory, send confirmation
+    - _Requirements: 5.3, 7.3_
+  - [x] 30.2 Create OrderStatusChanged listener
+    - Send status update email
+    - _Requirements: 7.3_
+  - [x] 30.3 Create PaymentCompleted listener
+    - Update order status, generate invoice
+    - _Requirements: 17.3, 18.1_
+  - [x] 30.4 Create LowStockAlert listener
+    - Notify admin when threshold reached
+    - _Requirements: 5.2_
+  - [x] 30.5 Create ReturnCompleted listener
+    - Restore inventory
+    - _Requirements: 12.6_
+
+- [x] 31. Final Checkpoint
+  - Run complete test suite
+  - Verify all migrations run cleanly
+  - Test critical user flows
+  - Ensure all tests pass, ask the user if questions arise.
+
+## Notes
+
+- Tasks marked with `*` are optional and can be skipped for faster MVP
+- Each task references specific requirements for traceability
+- Checkpoints ensure incremental validation
+- Property tests validate universal correctness properties
+- Unit tests validate specific examples and edge cases
