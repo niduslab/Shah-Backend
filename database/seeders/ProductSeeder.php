@@ -1,0 +1,420 @@
+<?php
+
+namespace Database\Seeders;
+
+use App\Models\Brand;
+use App\Models\Category;
+use App\Models\Product;
+use App\Models\ShippingClass;
+use Illuminate\Database\Seeder;
+
+class ProductSeeder extends Seeder
+{
+    public function run(): void
+    {
+        $standardShipping = ShippingClass::where('slug', 'standard')->first();
+        $heavyShipping = ShippingClass::where('slug', 'heavy-items')->first();
+        $oversizedShipping = ShippingClass::where('slug', 'oversized')->first();
+
+        $products = [
+            // Cricket Bats
+            [
+                'category' => 'cricket-bats',
+                'brand' => 'Gray-Nicolls',
+                'name' => 'Gray-Nicolls Powerbow 6X English Willow Bat',
+                'sku' => 'GN-PB6X-EW',
+                'short_description' => 'Professional grade English willow cricket bat',
+                'description' => 'The Gray-Nicolls Powerbow 6X is crafted from premium Grade 1 English willow. Features a mid-low sweet spot for powerful drives and pulls. Ideal for professional and club level players.',
+                'price' => 25000.00,
+                'compare_price' => 28000.00,
+                'cost_price' => 18000.00,
+                'quantity' => 15,
+                'weight' => 1.2,
+                'is_featured' => true,
+                'is_trending' => true,
+                'shipping_class' => 'standard',
+            ],
+            [
+                'category' => 'cricket-bats',
+                'brand' => 'Kookaburra',
+                'name' => 'Kookaburra Kahuna Pro Cricket Bat',
+                'sku' => 'KK-KHP-001',
+                'short_description' => 'Premium English willow bat with massive edges',
+                'description' => 'The Kookaburra Kahuna Pro features a massive profile with thick edges for maximum power. Grade 1+ English willow with traditional handle.',
+                'price' => 32000.00,
+                'compare_price' => 35000.00,
+                'cost_price' => 24000.00,
+                'quantity' => 10,
+                'weight' => 1.25,
+                'is_featured' => true,
+                'shipping_class' => 'standard',
+            ],
+            [
+                'category' => 'cricket-bats',
+                'brand' => 'SG',
+                'name' => 'SG Sunny Tonny Icon Cricket Bat',
+                'sku' => 'SG-STI-001',
+                'short_description' => 'Signature bat with classic profile',
+                'description' => 'The iconic SG Sunny Tonny bat features premium English willow with a classic profile. Perfect balance and pickup for all-round stroke play.',
+                'price' => 22000.00,
+                'compare_price' => 25000.00,
+                'cost_price' => 16000.00,
+                'quantity' => 20,
+                'weight' => 1.18,
+                'is_featured' => true,
+                'shipping_class' => 'standard',
+            ],
+            [
+                'category' => 'cricket-bats',
+                'brand' => 'SS',
+                'name' => 'SS Ton Reserve Edition Kashmir Willow',
+                'sku' => 'SS-TRE-KW',
+                'short_description' => 'Premium Kashmir willow for club cricket',
+                'description' => 'SS Ton Reserve Edition made from selected Kashmir willow. Great for club and recreational cricket with excellent value.',
+                'price' => 8500.00,
+                'compare_price' => 9500.00,
+                'cost_price' => 6000.00,
+                'quantity' => 30,
+                'weight' => 1.3,
+                'shipping_class' => 'standard',
+            ],
+
+            // Cricket Balls
+            [
+                'category' => 'cricket-balls',
+                'brand' => 'Kookaburra',
+                'name' => 'Kookaburra Turf Red Cricket Ball',
+                'sku' => 'KK-TURF-RED',
+                'short_description' => '4-piece leather ball for matches',
+                'description' => 'Official match quality 4-piece leather cricket ball. Hand stitched with prominent seam. 156g weight.',
+                'price' => 2500.00,
+                'compare_price' => 2800.00,
+                'cost_price' => 1800.00,
+                'quantity' => 100,
+                'weight' => 0.156,
+                'is_trending' => true,
+                'shipping_class' => 'standard',
+            ],
+            [
+                'category' => 'cricket-balls',
+                'brand' => 'SG',
+                'name' => 'SG Test Red Leather Ball',
+                'sku' => 'SG-TEST-RED',
+                'short_description' => 'Premium test match quality ball',
+                'description' => 'SG Test ball used in international cricket. Premium alum tanned leather with hand-stitched seam.',
+                'price' => 3200.00,
+                'compare_price' => 3500.00,
+                'cost_price' => 2400.00,
+                'quantity' => 50,
+                'weight' => 0.156,
+                'shipping_class' => 'standard',
+            ],
+
+            // Batting Pads
+            [
+                'category' => 'batting-pads',
+                'brand' => 'Gray-Nicolls',
+                'name' => 'Gray-Nicolls Powerbow Batting Pads',
+                'sku' => 'GN-PB-PADS',
+                'short_description' => 'Lightweight protection with HDF foam',
+                'description' => 'Professional batting pads with high-density foam protection. Lightweight design for quick running between wickets.',
+                'price' => 8500.00,
+                'compare_price' => 9500.00,
+                'cost_price' => 6000.00,
+                'quantity' => 25,
+                'weight' => 1.5,
+                'shipping_class' => 'standard',
+            ],
+
+            // Batting Gloves
+            [
+                'category' => 'batting-gloves',
+                'brand' => 'Kookaburra',
+                'name' => 'Kookaburra Kahuna Pro Batting Gloves',
+                'sku' => 'KK-KHP-GLV',
+                'short_description' => 'Premium leather batting gloves',
+                'description' => 'Professional batting gloves with premium leather palm. Excellent grip and protection with flexible fingers.',
+                'price' => 4500.00,
+                'compare_price' => 5000.00,
+                'cost_price' => 3200.00,
+                'quantity' => 40,
+                'weight' => 0.35,
+                'shipping_class' => 'standard',
+            ],
+
+            // Cricket Helmets
+            [
+                'category' => 'cricket-helmets',
+                'brand' => 'SG',
+                'name' => 'SG Aerotech Cricket Helmet',
+                'sku' => 'SG-AERO-HLM',
+                'short_description' => 'Titanium grille helmet with superior protection',
+                'description' => 'SG Aerotech helmet with titanium grille for maximum visibility. Meets ICC safety standards. Adjustable fit system.',
+                'price' => 6500.00,
+                'compare_price' => 7500.00,
+                'cost_price' => 4800.00,
+                'quantity' => 20,
+                'weight' => 0.8,
+                'is_featured' => true,
+                'shipping_class' => 'fragile',
+            ],
+
+            // Cricket Bags
+            [
+                'category' => 'cricket-bags',
+                'brand' => 'Gray-Nicolls',
+                'name' => 'Gray-Nicolls Powerbow Wheelie Bag',
+                'sku' => 'GN-PB-WBAG',
+                'short_description' => 'Large wheelie bag for full kit',
+                'description' => 'Spacious wheelie bag with multiple compartments. Fits complete cricket kit including bat, pads, helmet, and clothing.',
+                'price' => 12000.00,
+                'compare_price' => 14000.00,
+                'cost_price' => 8500.00,
+                'quantity' => 15,
+                'weight' => 4.5,
+                'shipping_class' => 'oversized',
+            ],
+
+            // Footballs
+            [
+                'category' => 'footballs',
+                'brand' => 'Nike',
+                'name' => 'Nike Flight Official Match Ball',
+                'sku' => 'NK-FLT-OMB',
+                'short_description' => 'FIFA Quality Pro certified match ball',
+                'description' => 'Nike Flight ball with Aerowsculpt technology for consistent flight. FIFA Quality Pro certified for professional matches.',
+                'price' => 15000.00,
+                'compare_price' => 17000.00,
+                'cost_price' => 11000.00,
+                'quantity' => 25,
+                'weight' => 0.45,
+                'is_featured' => true,
+                'is_trending' => true,
+                'shipping_class' => 'standard',
+            ],
+            [
+                'category' => 'footballs',
+                'brand' => 'Adidas',
+                'name' => 'Adidas UCL Pro Match Ball',
+                'sku' => 'AD-UCL-PRO',
+                'short_description' => 'Official UEFA Champions League ball',
+                'description' => 'Official match ball of the UEFA Champions League. Seamless surface for true flight and consistent touch.',
+                'price' => 16500.00,
+                'compare_price' => 18000.00,
+                'cost_price' => 12000.00,
+                'quantity' => 20,
+                'weight' => 0.43,
+                'is_featured' => true,
+                'shipping_class' => 'standard',
+            ],
+
+            // Football Boots
+            [
+                'category' => 'football-boots',
+                'brand' => 'Nike',
+                'name' => 'Nike Mercurial Superfly 9 Elite FG',
+                'sku' => 'NK-MS9-EFG',
+                'short_description' => 'Speed boots for firm ground',
+                'description' => 'Nike Mercurial Superfly 9 Elite with Zoom Air unit for explosive acceleration. Vaporposite upper for lightweight speed.',
+                'price' => 28000.00,
+                'compare_price' => 32000.00,
+                'cost_price' => 20000.00,
+                'quantity' => 30,
+                'weight' => 0.4,
+                'is_featured' => true,
+                'is_trending' => true,
+                'shipping_class' => 'standard',
+            ],
+            [
+                'category' => 'football-boots',
+                'brand' => 'Adidas',
+                'name' => 'Adidas Predator Edge.1 FG',
+                'sku' => 'AD-PE1-FG',
+                'short_description' => 'Control boots with Zone Skin',
+                'description' => 'Adidas Predator Edge.1 with Zone Skin upper for enhanced ball control. Faceted outsole for multi-directional movement.',
+                'price' => 26000.00,
+                'compare_price' => 29000.00,
+                'cost_price' => 19000.00,
+                'quantity' => 25,
+                'weight' => 0.42,
+                'is_featured' => true,
+                'shipping_class' => 'standard',
+            ],
+
+            // Badminton Rackets
+            [
+                'category' => 'badminton-rackets',
+                'brand' => 'Yonex',
+                'name' => 'Yonex Astrox 99 Pro',
+                'sku' => 'YX-A99-PRO',
+                'short_description' => 'Power racket for aggressive players',
+                'description' => 'Yonex Astrox 99 Pro with Rotational Generator System for steep attack angles. Namd graphite for increased shuttle hold.',
+                'price' => 22000.00,
+                'compare_price' => 25000.00,
+                'cost_price' => 16000.00,
+                'quantity' => 15,
+                'weight' => 0.088,
+                'is_featured' => true,
+                'is_trending' => true,
+                'shipping_class' => 'fragile',
+            ],
+            [
+                'category' => 'badminton-rackets',
+                'brand' => 'Li-Ning',
+                'name' => 'Li-Ning Axforce 80',
+                'sku' => 'LN-AF80',
+                'short_description' => 'All-round performance racket',
+                'description' => 'Li-Ning Axforce 80 with Dynamic Optimum Frame for powerful smashes. TB Nano technology for durability.',
+                'price' => 18000.00,
+                'compare_price' => 20000.00,
+                'cost_price' => 13000.00,
+                'quantity' => 20,
+                'weight' => 0.085,
+                'is_featured' => true,
+                'shipping_class' => 'fragile',
+            ],
+
+            // Shuttlecocks
+            [
+                'category' => 'shuttlecocks',
+                'brand' => 'Yonex',
+                'name' => 'Yonex Aerosensa 50 Feather Shuttlecocks',
+                'sku' => 'YX-AS50-12',
+                'short_description' => 'Tournament grade feather shuttles (12 pcs)',
+                'description' => 'Yonex Aerosensa 50 tournament grade shuttlecocks. Premium goose feathers for consistent flight. Pack of 12.',
+                'price' => 3500.00,
+                'compare_price' => 4000.00,
+                'cost_price' => 2500.00,
+                'quantity' => 100,
+                'weight' => 0.15,
+                'is_trending' => true,
+                'shipping_class' => 'fragile',
+            ],
+
+            // Tennis Rackets
+            [
+                'category' => 'tennis-rackets',
+                'brand' => 'Wilson',
+                'name' => 'Wilson Pro Staff RF97 Autograph',
+                'sku' => 'WL-PSRF97',
+                'short_description' => 'Roger Federer signature racket',
+                'description' => 'Wilson Pro Staff RF97 Autograph - Roger Federer\'s signature racket. Braided graphite for precision and feel.',
+                'price' => 28000.00,
+                'compare_price' => 32000.00,
+                'cost_price' => 20000.00,
+                'quantity' => 10,
+                'weight' => 0.34,
+                'is_featured' => true,
+                'shipping_class' => 'fragile',
+            ],
+            [
+                'category' => 'tennis-rackets',
+                'brand' => 'Head',
+                'name' => 'Head Gravity Pro',
+                'sku' => 'HD-GRVP',
+                'short_description' => 'Spin-friendly racket with Graphene 360+',
+                'description' => 'Head Gravity Pro with Graphene 360+ technology. Spin-friendly string pattern for modern baseline play.',
+                'price' => 24000.00,
+                'compare_price' => 27000.00,
+                'cost_price' => 17000.00,
+                'quantity' => 12,
+                'weight' => 0.315,
+                'shipping_class' => 'fragile',
+            ],
+
+            // Fitness - Dumbbells
+            [
+                'category' => 'dumbbells-weights',
+                'brand' => 'Decathlon',
+                'name' => 'Hex Dumbbell Set 2.5kg - 10kg',
+                'sku' => 'DC-HEX-SET',
+                'short_description' => 'Rubber coated hex dumbbells set',
+                'description' => 'Complete hex dumbbell set including 2.5kg, 5kg, 7.5kg, and 10kg pairs. Rubber coated for floor protection.',
+                'price' => 15000.00,
+                'compare_price' => 18000.00,
+                'cost_price' => 10000.00,
+                'quantity' => 20,
+                'weight' => 50,
+                'shipping_class' => 'heavy-items',
+            ],
+
+            // Yoga
+            [
+                'category' => 'yoga-pilates',
+                'brand' => 'Domyos',
+                'name' => 'Domyos Comfort Yoga Mat 8mm',
+                'sku' => 'DM-YM8-CMF',
+                'short_description' => 'Extra thick yoga mat for comfort',
+                'description' => 'Domyos Comfort yoga mat with 8mm thickness for joint protection. Non-slip surface with carrying strap.',
+                'price' => 2500.00,
+                'compare_price' => 3000.00,
+                'cost_price' => 1800.00,
+                'quantity' => 50,
+                'weight' => 1.2,
+                'is_trending' => true,
+                'shipping_class' => 'standard',
+            ],
+
+            // Swimming
+            [
+                'category' => 'swimming-goggles',
+                'brand' => 'Speedo',
+                'name' => 'Speedo Fastskin Hyper Elite Goggles',
+                'sku' => 'SP-FHE-GOG',
+                'short_description' => 'Competition racing goggles',
+                'description' => 'Speedo Fastskin Hyper Elite racing goggles with IQfit technology. Ultra-low profile for reduced drag.',
+                'price' => 8500.00,
+                'compare_price' => 9500.00,
+                'cost_price' => 6000.00,
+                'quantity' => 30,
+                'weight' => 0.05,
+                'is_featured' => true,
+                'shipping_class' => 'standard',
+            ],
+            [
+                'category' => 'swimwear',
+                'brand' => 'Speedo',
+                'name' => 'Speedo Endurance+ Jammer',
+                'sku' => 'SP-END-JAM',
+                'short_description' => 'Chlorine resistant training jammer',
+                'description' => 'Speedo Endurance+ jammer with 20x more chlorine resistance than standard swimwear. Comfortable fit for training.',
+                'price' => 4500.00,
+                'compare_price' => 5000.00,
+                'cost_price' => 3200.00,
+                'quantity' => 40,
+                'weight' => 0.15,
+                'shipping_class' => 'standard',
+            ],
+        ];
+
+        foreach ($products as $productData) {
+            $category = Category::where('slug', $productData['category'])->first();
+            $brand = Brand::where('name', $productData['brand'])->first();
+            $shippingClass = ShippingClass::where('slug', $productData['shipping_class'])->first();
+
+            if ($category && $brand) {
+                Product::create([
+                    'category_id' => $category->id,
+                    'brand_id' => $brand->id,
+                    'shipping_class_id' => $shippingClass?->id,
+                    'name' => $productData['name'],
+                    'sku' => $productData['sku'],
+                    'short_description' => $productData['short_description'],
+                    'description' => $productData['description'],
+                    'price' => $productData['price'],
+                    'compare_price' => $productData['compare_price'] ?? null,
+                    'cost_price' => $productData['cost_price'] ?? null,
+                    'quantity' => $productData['quantity'],
+                    'low_stock_threshold' => 5,
+                    'weight' => $productData['weight'],
+                    'weight_unit' => 'kg',
+                    'is_featured' => $productData['is_featured'] ?? false,
+                    'is_trending' => $productData['is_trending'] ?? false,
+                    'status' => 'active',
+                    'meta_title' => $productData['name'] . ' | Shah Sports',
+                    'meta_description' => $productData['short_description'],
+                ]);
+            }
+        }
+    }
+}
