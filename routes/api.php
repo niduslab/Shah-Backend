@@ -23,6 +23,19 @@ Route::prefix('catalog')->group(function () {
     Route::get('products/{slug}', [\App\Http\Controllers\Api\CatalogController::class, 'product']);
 });
 
+// Flash Deals (Public)
+Route::prefix('flash-deals')->group(function () {
+    Route::get('/', [\App\Http\Controllers\Api\FlashDealController::class, 'index']);
+    Route::get('upcoming', [\App\Http\Controllers\Api\FlashDealController::class, 'upcoming']);
+    Route::get('{id}', [\App\Http\Controllers\Api\FlashDealController::class, 'show']);
+});
+
+// Galleries (Public)
+Route::prefix('galleries')->group(function () {
+    Route::get('/', [\App\Http\Controllers\Api\GalleryController::class, 'index']);
+    Route::get('{slug}', [\App\Http\Controllers\Api\GalleryController::class, 'show']);
+});
+
 // Cart (Public)
 Route::prefix('cart')->group(function () {
     Route::post('summary', [\App\Http\Controllers\Api\CartController::class, 'summary']);
@@ -76,6 +89,7 @@ Route::middleware('auth:sanctum')->group(function () {
 
     // Payments
     Route::post('payments/{orderNumber}/retry', [\App\Http\Controllers\Api\PaymentController::class, 'retry']);
+    Route::post('payments/{orderNumber}/pay-preorder-balance', [\App\Http\Controllers\Api\PaymentController::class, 'payPreorderBalance']);
 
     // Reviews
     Route::prefix('reviews')->group(function () {
@@ -218,4 +232,15 @@ Route::prefix('admin')->middleware(['auth:sanctum', 'admin'])->group(function ()
         Route::get('inventory', [\App\Http\Controllers\Api\Admin\ReportController::class, 'inventory']);
         Route::get('order-status', [\App\Http\Controllers\Api\Admin\ReportController::class, 'orderStatus']);
     });
+
+    // Flash Deals
+    Route::apiResource('flash-deals', \App\Http\Controllers\Api\Admin\FlashDealController::class);
+    Route::post('flash-deals/{id}/toggle', [\App\Http\Controllers\Api\Admin\FlashDealController::class, 'toggleStatus']);
+    Route::get('flash-deals/{id}/statistics', [\App\Http\Controllers\Api\Admin\FlashDealController::class, 'statistics']);
+
+    // Galleries
+    Route::apiResource('galleries', \App\Http\Controllers\Api\Admin\GalleryController::class);
+    Route::post('galleries/{id}/images', [\App\Http\Controllers\Api\Admin\GalleryController::class, 'addImage']);
+    Route::put('galleries/{galleryId}/images/{imageId}', [\App\Http\Controllers\Api\Admin\GalleryController::class, 'updateImage']);
+    Route::delete('galleries/{galleryId}/images/{imageId}', [\App\Http\Controllers\Api\Admin\GalleryController::class, 'deleteImage']);
 });

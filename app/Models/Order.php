@@ -38,6 +38,9 @@ class Order extends Model
         'discount_amount' => 'decimal:2',
         'tax_amount' => 'decimal:2',
         'total_amount' => 'decimal:2',
+        'is_preorder' => 'boolean',
+        'preorder_deposit_paid' => 'decimal:2',
+        'preorder_remaining_amount' => 'decimal:2',
     ];
 
     /**
@@ -251,5 +254,58 @@ class Order extends Model
     public function scopeCompleted($query)
     {
         return $query->where('status', 'delivered');
+    }
+
+    /**
+     * Check if order is preorder.
+     */
+    public function isPreorder(): bool
+    {
+        return $this->is_preorder === true;
+    }
+
+    /**
+     * Check if preorder deposit is paid.
+     */
+    public function isPreorderDepositPaid(): bool
+    {
+        return $this->is_preorder && $this->preorder_payment_status === 'deposit_paid';
+    }
+
+    /**
+     * Check if preorder is fully paid.
+     */
+    public function isPreorderFullyPaid(): bool
+    {
+        return $this->is_preorder && $this->preorder_payment_status === 'fully_paid';
+    }
+
+    /**
+     * Get remaining preorder amount.
+     */
+    public function getRemainingPreorderAmount(): float
+    {
+        if (!$this->is_preorder) {
+            return 0;
+        }
+
+        return $this->preorder_remaining_amount ?? 0;
+    }
+
+    /**
+     * Scope for preorder orders.
+     */
+    public function scopePreorders($query)
+    {
+        return $query->where('is_preorder', true);
+    }
+
+    /**
+     * Scope for preorders with pending balance.
+     */
+    public function scopePreordersPendingBalance($query)
+    {
+        return $query->where('is_preorder', true)
+            ->where('preorder_payment_status', 'deposit_paid');
     }
 }

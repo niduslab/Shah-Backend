@@ -67,6 +67,11 @@ class ProductController extends Controller
             'meta_title' => 'nullable|string|max:255',
             'meta_description' => 'nullable|string',
             'meta_keywords' => 'nullable|string|max:255',
+            'is_preorder' => 'nullable|boolean',
+            'preorder_release_date' => 'nullable|date|after:now',
+            'preorder_limit' => 'nullable|integer|min:1',
+            'preorder_deposit_amount' => 'nullable|numeric|min:0',
+            'preorder_deposit_type' => 'nullable|in:percentage,fixed',
             'images' => 'nullable|array',
             'images.*.path' => 'required_with:images|string',
             'images.*.alt_text' => 'nullable|string',
@@ -140,6 +145,11 @@ class ProductController extends Controller
             'meta_title' => 'nullable|string|max:255',
             'meta_description' => 'nullable|string',
             'meta_keywords' => 'nullable|string|max:255',
+            'is_preorder' => 'nullable|boolean',
+            'preorder_release_date' => 'nullable|date',
+            'preorder_limit' => 'nullable|integer|min:1',
+            'preorder_deposit_amount' => 'nullable|numeric|min:0',
+            'preorder_deposit_type' => 'nullable|in:percentage,fixed',
             'images' => 'nullable|array',
         ]);
 

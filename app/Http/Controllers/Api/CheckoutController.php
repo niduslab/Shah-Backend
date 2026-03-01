@@ -73,12 +73,15 @@ class CheckoutController extends Controller
             'items.*.variation_id' => 'nullable|exists:product_variations,id',
             'items.*.quantity' => 'required|integer|min:1',
             'items.*.price' => 'required|numeric|min:0',
+            'items.*.is_preorder' => 'nullable|boolean',
             'shipping_address_id' => 'required|exists:addresses,id',
             'billing_address_id' => 'nullable|exists:addresses,id',
             'shipping_method' => 'required|in:shah_sports_team,pathao_courier',
             'coupon_code' => 'nullable|string',
             'payment_method' => 'required|in:ssl_commerz,bkash,nagad',
             'notes' => 'nullable|string|max:500',
+            'is_preorder' => 'nullable|boolean',
+            'pay_deposit_only' => 'nullable|boolean',
         ]);
 
         $user = $request->user();
@@ -91,6 +94,8 @@ class CheckoutController extends Controller
                 'billing_address_id' => $validated['billing_address_id'],
                 'shipping_method' => $validated['shipping_method'],
                 'notes' => $validated['notes'] ?? null,
+                'is_preorder' => $validated['is_preorder'] ?? false,
+                'pay_deposit_only' => $validated['pay_deposit_only'] ?? false,
             ],
             $validated['coupon_code'] ?? null
         );
@@ -122,13 +127,31 @@ class CheckoutController extends Controller
             'items.*.variation_id' => 'nullable|exists:product_variations,id',
             'items.*.quantity' => 'required|integer|min:1',
             'items.*.price' => 'required|numeric|min:0',
+            'items.*.is_preorder' => 'nullable|boolean',
             'shipping_address_id' => 'nullable|exists:addresses,id',
             'shipping_method' => 'nullable|in:shah_sports_team,pathao_courier',
             'coupon_code' => 'nullable|string',
+            'is_preorder' => 'nullable|boolean',
+            'pay_deposit_only' => 'nullable|boolean',
         ]);
 
         // Calculate subtotal
         $subtotal = collect($validated['items'])->sum(fn($i) => $i['price'] * $i['quantity']);
+
+        // Calculate preorder deposit if applicable
+        $depositAmount = null;
+        $remainingAmount = null;
+        if (!empty($validated['is_preorder']) && !empty($validated['pay_deposit_only'])) {
+            $depositAmount = 0;
+            foreach ($validated['items'] as $item) {
+                $product = \App\Models\Product::find($item['product_id']);
+                if ($product && $product->is_preorder) {
+                    $depositPerUnit = $product->calculatePreorderDeposit();
+                    $depositAmount += $depositPerUnit * $item['quantity'];
+                }
+            }
+            $remainingAmount = $subtotal - $depositAmount;
+        }
 
         // Calculate shipping
         $shippingCost = 0;
@@ -156,6 +179,7 @@ class CheckoutController extends Controller
         }
 
         $total = $subtotal + $shippingCost - $couponDiscount;
+        $payableNow = $depositAmount ?? $total;
 
         return response()->json([
             'success' => true,
@@ -164,6 +188,10 @@ class CheckoutController extends Controller
                 'shipping_cost' => $shippingCost,
                 'coupon_discount' => $couponDiscount,
                 'total' => $total,
+                'is_preorder' => $validated['is_preorder'] ?? false,
+                'deposit_amount' => $depositAmount,
+                'remaining_amount' => $remainingAmount,
+                'payable_now' => $payableNow,
             ],
         ]);
     }

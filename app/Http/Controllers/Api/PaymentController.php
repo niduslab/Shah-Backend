@@ -128,4 +128,58 @@ class PaymentController extends Controller
             'data' => $paymentResult,
         ]);
     }
+
+    /**
+     * Pay remaining balance for preorder.
+     */
+    public function payPreorderBalance(Request $request, string $orderNumber): JsonResponse
+    {
+        $order = Order::where('order_number', $orderNumber)
+            ->where('user_id', $request->user()->id)
+            ->where('is_preorder', true)
+            ->where('preorder_payment_status', 'deposit_paid')
+            ->first();
+
+        if (!$order) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Preorder not found or balance already paid.',
+            ], 404);
+        }
+
+        if ($order->preorder_remaining_amount <= 0) {
+            return response()->json([
+                'success' => false,
+                'message' => 'No remaining balance to pay.',
+            ], 400);
+        }
+
+        $validated = $request->validate([
+            'payment_method' => 'required|in:ssl_commerz,bkash,nagad',
+        ]);
+
+        // Update order total to remaining amount
+        $order->update([
+            'total_amount' => $order->preorder_remaining_amount,
+        ]);
+
+        $paymentResult = $this->paymentService->processPayment(
+            $order,
+            $validated['payment_method']
+        );
+
+        // Update preorder payment status
+        if ($paymentResult['success'] ?? false) {
+            $order->update([
+                'preorder_payment_status' => 'fully_paid',
+                'preorder_remaining_amount' => 0,
+            ]);
+        }
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Preorder balance payment initiated.',
+            'data' => $paymentResult,
+        ]);
+    }
 }

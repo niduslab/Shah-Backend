@@ -38,10 +38,29 @@ class OrderService implements OrderServiceInterface
     public function createOrder(User $user, array $cartItems, array $shippingData, ?string $couponCode = null): Order
     {
         return DB::transaction(function () use ($user, $cartItems, $shippingData, $couponCode) {
+            // Check if this is a preorder
+            $isPreorder = $shippingData['is_preorder'] ?? false;
+            $payDepositOnly = $shippingData['pay_deposit_only'] ?? false;
+
             // Apply promotions
             $promotionResult = $this->promotionService->applyPromotion($cartItems);
             $subtotal = collect($promotionResult['items'])->sum(fn($item) => $item['discounted_price'] * $item['quantity']);
             $promotionDiscount = $promotionResult['total_discount'];
+
+            // Calculate preorder deposit if applicable
+            $depositAmount = null;
+            $remainingAmount = null;
+            if ($isPreorder && $payDepositOnly) {
+                $depositAmount = 0;
+                foreach ($cartItems as $item) {
+                    $product = Product::find($item['product_id']);
+                    if ($product && $product->is_preorder) {
+                        $depositPerUnit = $product->calculatePreorderDeposit();
+                        $depositAmount += $depositPerUnit * $item['quantity'];
+                    }
+                }
+                $remainingAmount = $subtotal - $depositAmount;
+            }
 
             // Apply coupon if provided
             $coupon = null;
@@ -86,18 +105,30 @@ class OrderService implements OrderServiceInterface
             $taxAmount = 0; // Bangladesh typically doesn't have VAT on e-commerce
             $totalAmount = $subtotal + $shippingCost + $taxAmount - $couponDiscount;
 
+            // Determine preorder payment status
+            $preorderPaymentStatus = 'pending';
+            if ($isPreorder && $payDepositOnly) {
+                $preorderPaymentStatus = 'deposit_paid';
+            } elseif ($isPreorder && !$payDepositOnly) {
+                $preorderPaymentStatus = 'fully_paid';
+            }
+
             // Create order
             $order = Order::create([
                 'user_id' => $user->id,
                 'order_number' => $this->generateOrderNumber(),
                 'order_type' => 'online',
+                'is_preorder' => $isPreorder,
+                'preorder_deposit_paid' => $depositAmount,
+                'preorder_remaining_amount' => $remainingAmount,
+                'preorder_payment_status' => $preorderPaymentStatus,
                 'shipping_address_id' => $shippingData['shipping_address_id'],
                 'billing_address_id' => $shippingData['billing_address_id'] ?? $shippingData['shipping_address_id'],
                 'subtotal' => $subtotal,
                 'shipping_cost' => $shippingCost,
                 'discount_amount' => $totalDiscount,
                 'tax_amount' => $taxAmount,
-                'total_amount' => $totalAmount,
+                'total_amount' => $payDepositOnly ? $depositAmount : $totalAmount,
                 'coupon_id' => $coupon?->id,
                 'shipping_method' => $shippingMethod,
                 'status' => 'pending',

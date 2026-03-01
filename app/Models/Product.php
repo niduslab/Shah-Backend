@@ -50,6 +50,10 @@ class Product extends Model
         'low_stock_threshold' => 'integer',
         'is_featured' => 'boolean',
         'is_trending' => 'boolean',
+        'is_preorder' => 'boolean',
+        'preorder_release_date' => 'datetime',
+        'preorder_limit' => 'integer',
+        'preorder_deposit_amount' => 'decimal:2',
     ];
 
     /**
@@ -262,5 +266,105 @@ class Product extends Model
     public function hasVariations(): bool
     {
         return $this->variations()->exists();
+    }
+
+    /**
+     * Get flash deals for this product.
+     */
+    public function flashDeals()
+    {
+        return $this->belongsToMany(FlashDeal::class, 'flash_deal_products')
+            ->withPivot('flash_price', 'quantity_limit', 'quantity_sold')
+            ->withTimestamps();
+    }
+
+    /**
+     * Get active flash deal for this product.
+     */
+    public function activeFlashDeal()
+    {
+        return $this->flashDeals()
+            ->where('is_active', true)
+            ->where('starts_at', '<=', now())
+            ->where('ends_at', '>=', now())
+            ->orderBy('priority', 'desc')
+            ->first();
+    }
+
+    /**
+     * Check if product is on flash deal.
+     */
+    public function hasActiveFlashDeal(): bool
+    {
+        return $this->activeFlashDeal() !== null;
+    }
+
+    /**
+     * Get flash deal price if available.
+     */
+    public function getFlashPriceAttribute(): ?float
+    {
+        $flashDeal = $this->activeFlashDeal();
+        return $flashDeal ? $flashDeal->pivot->flash_price : null;
+    }
+
+    /**
+     * Get effective price (flash deal or regular).
+     */
+    public function getEffectivePriceAttribute(): float
+    {
+        return $this->flash_price ?? $this->price;
+    }
+
+    /**
+     * Check if product is available for preorder.
+     */
+    public function isPreorderAvailable(): bool
+    {
+        if (!$this->is_preorder) {
+            return false;
+        }
+
+        if ($this->preorder_release_date && now()->gte($this->preorder_release_date)) {
+            return false;
+        }
+
+        if ($this->preorder_limit) {
+            $preorderCount = $this->orderItems()
+                ->whereHas('order', fn($q) => $q->where('is_preorder', true))
+                ->sum('quantity');
+            
+            return $preorderCount < $this->preorder_limit;
+        }
+
+        return true;
+    }
+
+    /**
+     * Calculate preorder deposit amount.
+     */
+    public function calculatePreorderDeposit(): float
+    {
+        if (!$this->is_preorder || !$this->preorder_deposit_amount) {
+            return $this->price;
+        }
+
+        if ($this->preorder_deposit_type === 'percentage') {
+            return $this->price * ($this->preorder_deposit_amount / 100);
+        }
+
+        return $this->preorder_deposit_amount;
+    }
+
+    /**
+     * Scope for preorder products.
+     */
+    public function scopePreorder($query)
+    {
+        return $query->where('is_preorder', true)
+            ->where(function ($q) {
+                $q->whereNull('preorder_release_date')
+                    ->orWhere('preorder_release_date', '>', now());
+            });
     }
 }
