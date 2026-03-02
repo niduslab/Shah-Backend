@@ -104,6 +104,40 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::post('/', [\App\Http\Controllers\Api\ReturnController::class, 'store']);
         Route::get('{id}', [\App\Http\Controllers\Api\ReturnController::class, 'show']);
     });
+
+    // User Dashboard
+    Route::get('dashboard', [\App\Http\Controllers\Api\UserDashboardController::class, 'index']);
+    Route::get('profile', [\App\Http\Controllers\Api\UserDashboardController::class, 'profile']);
+
+    // Addresses
+    Route::prefix('addresses')->group(function () {
+        Route::get('/', [\App\Http\Controllers\Api\AddressController::class, 'index']);
+        Route::post('/', [\App\Http\Controllers\Api\AddressController::class, 'store']);
+        Route::get('{id}', [\App\Http\Controllers\Api\AddressController::class, 'show']);
+        Route::put('{id}', [\App\Http\Controllers\Api\AddressController::class, 'update']);
+        Route::delete('{id}', [\App\Http\Controllers\Api\AddressController::class, 'destroy']);
+        Route::post('{id}/set-default', [\App\Http\Controllers\Api\AddressController::class, 'setDefault']);
+    });
+
+    // Wishlist
+    Route::prefix('wishlist')->group(function () {
+        Route::get('/', [\App\Http\Controllers\Api\WishlistController::class, 'index']);
+        Route::post('/', [\App\Http\Controllers\Api\WishlistController::class, 'store']);
+        Route::delete('{id}', [\App\Http\Controllers\Api\WishlistController::class, 'destroy']);
+        Route::delete('product/{productId}', [\App\Http\Controllers\Api\WishlistController::class, 'removeByProduct']);
+        Route::get('check/{productId}', [\App\Http\Controllers\Api\WishlistController::class, 'check']);
+        Route::post('clear', [\App\Http\Controllers\Api\WishlistController::class, 'clear']);
+    });
+
+    // Notifications
+    Route::prefix('notifications')->group(function () {
+        Route::get('/', [\App\Http\Controllers\Api\NotificationController::class, 'index']);
+        Route::get('unread-count', [\App\Http\Controllers\Api\NotificationController::class, 'unreadCount']);
+        Route::post('{id}/mark-as-read', [\App\Http\Controllers\Api\NotificationController::class, 'markAsRead']);
+        Route::post('mark-all-as-read', [\App\Http\Controllers\Api\NotificationController::class, 'markAllAsRead']);
+        Route::delete('{id}', [\App\Http\Controllers\Api\NotificationController::class, 'destroy']);
+        Route::post('clear', [\App\Http\Controllers\Api\NotificationController::class, 'clear']);
+    });
 });
 
 // Admin Routes

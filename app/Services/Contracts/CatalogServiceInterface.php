@@ -6,7 +6,7 @@ use App\Models\Product;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Collection;
 
-interface   
+interface CatalogServiceInterface
 {
     /**
      * Create a new product.
