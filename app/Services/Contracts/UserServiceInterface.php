@@ -14,7 +14,7 @@ interface UserServiceInterface
     /**
      * Authenticate user with credentials.
      */
-    public function authenticate(string $email, string $password): ?array;
+    public function authenticate(string $email, string $password): array;
 
     /**
      * Update user profile.
@@ -32,14 +32,14 @@ interface UserServiceInterface
     public function sendVerificationEmail(User $user): void;
 
     /**
-     * Initiate password reset process.
+     * Send password reset link.
      */
-    public function resetPassword(string $email): bool;
+    public function sendPasswordResetLink(string $email): array;
 
     /**
-     * Complete password reset with token.
+     * Reset password with token.
      */
-    public function completePasswordReset(string $email, string $token, string $password): bool;
+    public function resetPassword(string $email, string $token, string $password): array;
 
     /**
      * Get user by ID.

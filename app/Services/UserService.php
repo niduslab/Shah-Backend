@@ -48,26 +48,29 @@ class UserService implements UserServiceInterface
      * 
      * @param string $email
      * @param string $password
-     * @return array|null Returns array with user and token on success, null on failure
+     * @return array Returns array with success, user, and optional message
      */
-    public function authenticate(string $email, string $password): ?array
+    public function authenticate(string $email, string $password): array
     {
         $user = User::where('email', $email)->first();
 
         if (!$user || !Hash::check($password, $user->password)) {
-            return null;
+            return [
+                'success' => false,
+                'message' => 'Invalid credentials.',
+            ];
         }
 
         if (!$user->status) {
-            return null;
+            return [
+                'success' => false,
+                'message' => 'Your account has been deactivated.',
+            ];
         }
 
-        // Create Sanctum token
-        $token = $user->createToken('auth-token')->plainTextToken;
-
         return [
+            'success' => true,
             'user' => $user,
-            'token' => $token,
         ];
     }
 
@@ -144,34 +147,42 @@ class UserService implements UserServiceInterface
     }
 
     /**
-     * Initiate password reset process.
+     * Send password reset link to user.
      * 
      * @param string $email
-     * @return bool
+     * @return array
      */
-    public function resetPassword(string $email): bool
+    public function sendPasswordResetLink(string $email): array
     {
         $user = $this->findByEmail($email);
 
         if (!$user) {
-            // Return true anyway to prevent email enumeration
-            return true;
+            // Return success anyway to prevent email enumeration
+            return [
+                'success' => true,
+                'message' => 'If that email exists, a password reset link has been sent.',
+            ];
         }
 
         $status = Password::sendResetLink(['email' => $email]);
 
-        return $status === Password::RESET_LINK_SENT;
+        return [
+            'success' => $status === Password::RESET_LINK_SENT,
+            'message' => $status === Password::RESET_LINK_SENT 
+                ? 'Password reset link sent to your email.' 
+                : 'Unable to send password reset link.',
+        ];
     }
 
     /**
-     * Complete password reset with token.
+     * Reset password with token.
      * 
      * @param string $email
      * @param string $token
      * @param string $password
-     * @return bool
+     * @return array
      */
-    public function completePasswordReset(string $email, string $token, string $password): bool
+    public function resetPassword(string $email, string $token, string $password): array
     {
         $status = Password::reset(
             [
@@ -191,7 +202,12 @@ class UserService implements UserServiceInterface
             }
         );
 
-        return $status === Password::PASSWORD_RESET;
+        return [
+            'success' => $status === Password::PASSWORD_RESET,
+            'message' => $status === Password::PASSWORD_RESET 
+                ? 'Password reset successfully.' 
+                : 'Unable to reset password. Invalid or expired token.',
+        ];
     }
 
     /**

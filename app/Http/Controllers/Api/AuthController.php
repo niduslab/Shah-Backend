@@ -30,14 +30,14 @@ class AuthController extends Controller
 
         $user = $this->userService->register($validated);
 
-        $token = $user->createToken('auth_token')->plainTextToken;
+        Auth::login($user);
+        $request->session()->regenerate();
 
         return response()->json([
             'success' => true,
             'message' => 'Registration successful.',
             'data' => [
                 'user' => $user,
-                'token' => $token,
             ],
         ], 201);
     }
@@ -64,14 +64,14 @@ class AuthController extends Controller
             ], 401);
         }
 
-        $token = $result['user']->createToken('auth_token')->plainTextToken;
+        Auth::login($result['user']);
+        $request->session()->regenerate();
 
         return response()->json([
             'success' => true,
             'message' => 'Login successful.',
             'data' => [
                 'user' => $result['user'],
-                'token' => $token,
             ],
         ]);
     }
@@ -81,7 +81,9 @@ class AuthController extends Controller
      */
     public function logout(Request $request): JsonResponse
     {
-        $request->user()->currentAccessToken()->delete();
+        Auth::guard('web')->logout();
+        $request->session()->invalidate();
+        $request->session()->regenerateToken();
 
         return response()->json([
             'success' => true,
@@ -96,7 +98,7 @@ class AuthController extends Controller
     {
         return response()->json([
             'success' => true,
-            'data' => $request->user()->load('profile'),
+            'data' => $request->user(),
         ]);
     }
 
@@ -155,11 +157,11 @@ class AuthController extends Controller
             'email' => 'required|email|exists:users,email',
         ]);
 
-        $this->userService->sendPasswordResetLink($validated['email']);
+        $result = $this->userService->sendPasswordResetLink($validated['email']);
 
         return response()->json([
-            'success' => true,
-            'message' => 'Password reset link sent to your email.',
+            'success' => $result['success'],
+            'message' => $result['message'],
         ]);
     }
 
@@ -180,16 +182,9 @@ class AuthController extends Controller
             $validated['password']
         );
 
-        if (!$result['success']) {
-            return response()->json([
-                'success' => false,
-                'message' => $result['message'],
-            ], 400);
-        }
-
         return response()->json([
-            'success' => true,
-            'message' => 'Password reset successfully.',
-        ]);
+            'success' => $result['success'],
+            'message' => $result['message'],
+        ], $result['success'] ? 200 : 400);
     }
 }

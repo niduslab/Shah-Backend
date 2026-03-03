@@ -5,10 +5,13 @@ namespace App\Services;
 use App\Models\Address;
 use App\Models\Order;
 use App\Models\Product;
+use App\Models\ProductVariation;
 use App\Models\ShippingRate;
+use App\Models\WeightCostRule;
 use App\Services\Contracts\ShippingServiceInterface;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 
 class ShippingService implements ShippingServiceInterface
 {
@@ -19,29 +22,46 @@ class ShippingService implements ShippingServiceInterface
     public const METHOD_PATHAO_COURIER = 'pathao_courier';
 
     /**
+     * Weight thresholds for method recommendations.
+     */
+    private const HEAVY_WEIGHT_THRESHOLD = 20; // kg
+    private const LARGE_DIMENSION_THRESHOLD = 100; // cm
+    private const LARGE_VOLUME_THRESHOLD = 0.5; // cubic meters
+
+    /**
      * Calculate shipping cost for cart items.
      * 
-     * @param array $items Array of items with product_id, quantity, weight, shipping_class_id
-     * @param Address $address
+     * @param array $items Array of items with product_id, variation_id, quantity
+     * @param Address|null $address
+     * @param float $subtotal For free shipping calculation
      * @return array Contains costs for each available method
      */
-    public function calculateShippingCost(array $items, Address $address): array
+    public function calculateShippingCost(array $items, ?Address $address = null, float $subtotal = 0): array
     {
-        $totalWeight = $this->calculateTotalWeight($items);
-        $availableMethods = $this->getAvailableMethods($address);
+        $enrichedItems = $this->enrichItemsWithProductData($items);
+        $totalWeight = $this->calculateTotalWeight($enrichedItems);
+        $availableMethods = $this->getAvailableMethods($enrichedItems, $address);
         $costs = [];
 
         foreach ($availableMethods as $method) {
-            $rate = $this->getApplicableRate($method['method'], $address, $items);
+            $rate = $this->getApplicableRate($method['code'], $address, $enrichedItems);
             
             if ($rate) {
-                $cost = $this->calculateCostFromRate($rate, $totalWeight, $items);
-                $costs[$method['method']] = [
-                    'method' => $method['method'],
+                // Check free shipping
+                if ($rate->free_shipping_min_order > 0 && $subtotal >= $rate->free_shipping_min_order) {
+                    $cost = 0;
+                } else {
+                    $cost = $this->calculateCostFromRate($rate, $totalWeight, $enrichedItems, $address);
+                }
+
+                $costs[$method['code']] = [
+                    'code' => $method['code'],
                     'name' => $method['name'],
-                    'cost' => $cost,
+                    'description' => $method['description'],
+                    'cost' => round($cost, 2),
                     'delivery_time' => $rate->delivery_time,
                     'free_shipping_min_order' => $rate->free_shipping_min_order,
+                    'is_free' => $cost == 0,
                 ];
             }
         }
@@ -50,14 +70,17 @@ class ShippingService implements ShippingServiceInterface
     }
 
     /**
-     * Get available shipping methods for an address.
+     * Get available shipping methods for items and address.
      * 
-     * @param Address $address
+     * @param array $items
+     * @param Address|null $address
      * @return array
      */
-    public function getAvailableMethods(Address $address): array
+    public function getAvailableMethods(array $items = [], ?Address $address = null): array
     {
         $methods = [];
+        $totalWeight = $this->calculateTotalWeight($items);
+        $hasLargeItems = $this->hasLargeItems($items);
 
         // Shah Sports Team - available for heavy/large items and local delivery
         $shahSportsRate = ShippingRate::where('method', self::METHOD_SHAH_SPORTS_TEAM)
@@ -66,22 +89,24 @@ class ShippingService implements ShippingServiceInterface
 
         if ($shahSportsRate) {
             $methods[] = [
-                'method' => self::METHOD_SHAH_SPORTS_TEAM,
+                'code' => self::METHOD_SHAH_SPORTS_TEAM,
                 'name' => 'Shah Sports Team Delivery',
                 'description' => 'Our own delivery team for heavy and large items',
+                'recommended' => $totalWeight > self::HEAVY_WEIGHT_THRESHOLD || $hasLargeItems,
             ];
         }
 
-        // Pathao Courier - available for home delivery
+        // Pathao Courier - available for standard items
         $pathaoRate = ShippingRate::where('method', self::METHOD_PATHAO_COURIER)
             ->where('is_active', true)
             ->first();
 
         if ($pathaoRate) {
             $methods[] = [
-                'method' => self::METHOD_PATHAO_COURIER,
+                'code' => self::METHOD_PATHAO_COURIER,
                 'name' => 'Pathao Courier',
-                'description' => 'Standard home delivery via Pathao',
+                'description' => 'Fast and reliable courier service for standard deliveries',
+                'recommended' => $totalWeight <= self::HEAVY_WEIGHT_THRESHOLD && !$hasLargeItems,
             ];
         }
 
@@ -169,10 +194,52 @@ class ShippingService implements ShippingServiceInterface
     }
 
     /**
+     * Enrich items with product data.
+     * 
+     * @param array $items
+     * @return array
+     */
+    protected function enrichItemsWithProductData(array $items): array
+    {
+        return collect($items)->map(function ($item) {
+            $productId = $item['product_id'];
+            $variationId = $item['variation_id'] ?? null;
+            $quantity = $item['quantity'] ?? 1;
+
+            // Get product
+            $product = Product::with(['shippingClass'])->find($productId);
+            
+            if (!$product) {
+                return $item;
+            }
+
+            // Get variation if specified
+            $variation = null;
+            if ($variationId) {
+                $variation = ProductVariation::find($variationId);
+            }
+
+            // Use variation weight if available, otherwise product weight
+            $weight = $variation->weight ?? $product->weight ?? 0;
+            $weightUnit = $variation->weight_unit ?? $product->weight_unit ?? 'kg';
+
+            return array_merge($item, [
+                'weight' => $weight,
+                'weight_unit' => $weightUnit,
+                'length' => $product->length ?? 0,
+                'width' => $product->width ?? 0,
+                'height' => $product->height ?? 0,
+                'shipping_class_id' => $product->shipping_class_id,
+                'quantity' => $quantity,
+            ]);
+        })->toArray();
+    }
+
+    /**
      * Calculate total weight of items.
      * 
      * @param array $items
-     * @return float
+     * @return float Weight in kg
      */
     protected function calculateTotalWeight(array $items): float
     {
@@ -184,16 +251,28 @@ class ShippingService implements ShippingServiceInterface
             $weightUnit = $item['weight_unit'] ?? 'kg';
 
             // Convert to kg if needed
-            if ($weightUnit === 'g') {
-                $weight = $weight / 1000;
-            } elseif ($weightUnit === 'lb') {
-                $weight = $weight * 0.453592;
-            }
-
-            $totalWeight += $weight * $quantity;
+            $weightInKg = $this->convertWeightToKg($weight, $weightUnit);
+            $totalWeight += $weightInKg * $quantity;
         }
 
-        return $totalWeight;
+        return round($totalWeight, 2);
+    }
+
+    /**
+     * Convert weight to kg.
+     * 
+     * @param float $weight
+     * @param string $unit
+     * @return float
+     */
+    protected function convertWeightToKg(float $weight, string $unit): float
+    {
+        return match (strtolower($unit)) {
+            'g', 'gram', 'grams' => $weight / 1000,
+            'lb', 'lbs', 'pound', 'pounds' => $weight * 0.453592,
+            'oz', 'ounce', 'ounces' => $weight * 0.0283495,
+            default => $weight, // Assume kg
+        };
     }
 
     /**
@@ -228,11 +307,11 @@ class ShippingService implements ShippingServiceInterface
      * Get applicable shipping rate.
      * 
      * @param string $method
-     * @param Address $address
+     * @param Address|null $address
      * @param array $items
      * @return ShippingRate|null
      */
-    protected function getApplicableRate(string $method, Address $address, array $items): ?ShippingRate
+    protected function getApplicableRate(string $method, ?Address $address, array $items): ?ShippingRate
     {
         // Get shipping class IDs from items
         $shippingClassIds = collect($items)
@@ -241,11 +320,12 @@ class ShippingService implements ShippingServiceInterface
             ->unique()
             ->toArray();
 
-        // Try to find rate matching shipping class
+        // Try to find rate matching shipping class (prioritize most specific)
         if (!empty($shippingClassIds)) {
             $rate = ShippingRate::where('method', $method)
                 ->where('is_active', true)
                 ->whereIn('shipping_class_id', $shippingClassIds)
+                ->orderByRaw('CASE WHEN shipping_class_id IS NOT NULL THEN 1 ELSE 2 END')
                 ->first();
 
             if ($rate) {
@@ -261,29 +341,88 @@ class ShippingService implements ShippingServiceInterface
     }
 
     /**
-     * Calculate cost from rate based on weight.
+     * Calculate cost from rate based on weight and location.
      * 
      * @param ShippingRate $rate
      * @param float $totalWeight
      * @param array $items
+     * @param Address|null $address
      * @return float
      */
-    protected function calculateCostFromRate(ShippingRate $rate, float $totalWeight, array $items): float
+    protected function calculateCostFromRate(ShippingRate $rate, float $totalWeight, array $items, ?Address $address): float
     {
         $baseCost = $rate->base_cost;
 
-        // Add weight-based cost if applicable
-        // This would use weight_cost_rules if implemented
-        // For now, use a simple weight multiplier
-        $weightCost = 0;
-        if ($totalWeight > 1) {
-            // Add cost per additional kg
-            $additionalKg = ceil($totalWeight - 1);
-            $costPerKg = $rate->method === self::METHOD_SHAH_SPORTS_TEAM ? 20 : 15;
-            $weightCost = $additionalKg * $costPerKg;
+        // Try to find applicable weight cost rule
+        $weightCostRule = $this->getApplicableWeightCostRule(
+            $rate->id,
+            $address?->state,
+            $address?->city
+        );
+
+        if ($weightCostRule) {
+            $weightCost = $weightCostRule->calculateCost($totalWeight);
+            return $baseCost + $weightCost;
         }
 
-        return $baseCost + $weightCost;
+        // Fallback: Simple weight-based calculation
+        return $this->calculateSimpleWeightCost($baseCost, $totalWeight, $rate->method);
+    }
+
+    /**
+     * Get applicable weight cost rule for location.
+     * 
+     * @param int $shippingRateId
+     * @param string|null $state
+     * @param string|null $city
+     * @return WeightCostRule|null
+     */
+    protected function getApplicableWeightCostRule(int $shippingRateId, ?string $state, ?string $city): ?WeightCostRule
+    {
+        // Priority: City > State > Default (null location)
+        return WeightCostRule::where('shipping_rate_id', $shippingRateId)
+            ->where(function ($query) use ($state, $city) {
+                if ($city) {
+                    $query->where('city', $city);
+                } elseif ($state) {
+                    $query->where('state', $state)->whereNull('city');
+                } else {
+                    $query->whereNull('city')->whereNull('state');
+                }
+            })
+            ->orderByRaw('
+                CASE 
+                    WHEN city IS NOT NULL THEN 1 
+                    WHEN state IS NOT NULL THEN 2 
+                    ELSE 3 
+                END
+            ')
+            ->first();
+    }
+
+    /**
+     * Calculate simple weight-based cost (fallback).
+     * 
+     * @param float $baseCost
+     * @param float $totalWeight
+     * @param string $method
+     * @return float
+     */
+    protected function calculateSimpleWeightCost(float $baseCost, float $totalWeight, string $method): float
+    {
+        if ($totalWeight <= 1) {
+            return $baseCost;
+        }
+
+        // Cost per additional kg
+        $costPerKg = match ($method) {
+            self::METHOD_SHAH_SPORTS_TEAM => 20,
+            self::METHOD_PATHAO_COURIER => 15,
+            default => 10,
+        };
+
+        $additionalKg = ceil($totalWeight - 1);
+        return $baseCost + ($additionalKg * $costPerKg);
     }
 
     /**
@@ -291,19 +430,67 @@ class ShippingService implements ShippingServiceInterface
      * 
      * @param string $method
      * @param array $items
-     * @param Address $address
+     * @param Address|null $address
      * @param float $subtotal For free shipping check
      * @return float
      */
-    public function getShippingCostForMethod(string $method, array $items, Address $address, float $subtotal = 0): float
+    public function getShippingCostForMethod(string $method, array $items, ?Address $address = null, float $subtotal = 0): float
     {
-        // Check free shipping first
-        if ($this->checkFreeShipping($subtotal, $method)) {
+        $enrichedItems = $this->enrichItemsWithProductData($items);
+        $totalWeight = $this->calculateTotalWeight($enrichedItems);
+        
+        $rate = $this->getApplicableRate($method, $address, $enrichedItems);
+        
+        if (!$rate) {
+            Log::warning("No shipping rate found for method: {$method}");
             return 0;
         }
 
-        $costs = $this->calculateShippingCost($items, $address);
+        // Check free shipping
+        if ($rate->free_shipping_min_order > 0 && $subtotal >= $rate->free_shipping_min_order) {
+            return 0;
+        }
 
-        return $costs[$method]['cost'] ?? 0;
+        return $this->calculateCostFromRate($rate, $totalWeight, $enrichedItems, $address);
+    }
+
+    /**
+     * Get detailed shipping quote with breakdown.
+     * 
+     * @param string $method
+     * @param array $items
+     * @param Address|null $address
+     * @param float $subtotal
+     * @return array
+     */
+    public function getShippingQuote(string $method, array $items, ?Address $address = null, float $subtotal = 0): array
+    {
+        $enrichedItems = $this->enrichItemsWithProductData($items);
+        $totalWeight = $this->calculateTotalWeight($enrichedItems);
+        
+        $rate = $this->getApplicableRate($method, $address, $enrichedItems);
+        
+        if (!$rate) {
+            return [
+                'success' => false,
+                'message' => 'Shipping method not available',
+            ];
+        }
+
+        $isFreeShipping = $rate->free_shipping_min_order > 0 && $subtotal >= $rate->free_shipping_min_order;
+        $cost = $isFreeShipping ? 0 : $this->calculateCostFromRate($rate, $totalWeight, $enrichedItems, $address);
+
+        return [
+            'success' => true,
+            'method' => $method,
+            'name' => $rate->name,
+            'base_cost' => $rate->base_cost,
+            'total_cost' => round($cost, 2),
+            'total_weight' => $totalWeight,
+            'delivery_time' => $rate->delivery_time,
+            'is_free_shipping' => $isFreeShipping,
+            'free_shipping_threshold' => $rate->free_shipping_min_order,
+            'amount_to_free_shipping' => $isFreeShipping ? 0 : max(0, $rate->free_shipping_min_order - $subtotal),
+        ];
     }
 }

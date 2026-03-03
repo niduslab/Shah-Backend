@@ -27,38 +27,26 @@ class CheckoutController extends Controller
         $validated = $request->validate([
             'items' => 'required|array|min:1',
             'items.*.product_id' => 'required|exists:products,id',
+            'items.*.variation_id' => 'nullable|exists:product_variations,id',
             'items.*.quantity' => 'required|integer|min:1',
-            'items.*.weight' => 'nullable|numeric',
             'address_id' => 'nullable|exists:addresses,id',
             'subtotal' => 'required|numeric|min:0',
         ]);
 
-        $methods = $this->shippingService->getAvailableMethods(
-            $validated['items'],
-            $validated['address_id'] ?? null
-        );
-
-        // Calculate costs for each method
-        $methodsWithCost = [];
-        foreach ($methods as $method) {
-            $cost = $this->shippingService->getShippingCostForMethod(
-                $method['code'],
-                $validated['items'],
-                null,
-                $validated['subtotal']
-            );
-
-            $methodsWithCost[] = [
-                'code' => $method['code'],
-                'name' => $method['name'],
-                'description' => $method['description'],
-                'cost' => $cost,
-            ];
+        $address = null;
+        if (!empty($validated['address_id'])) {
+            $address = \App\Models\Address::find($validated['address_id']);
         }
+
+        $costs = $this->shippingService->calculateShippingCost(
+            $validated['items'],
+            $address,
+            $validated['subtotal']
+        );
 
         return response()->json([
             'success' => true,
-            'data' => $methodsWithCost,
+            'data' => array_values($costs),
         ]);
     }
 
@@ -155,11 +143,16 @@ class CheckoutController extends Controller
 
         // Calculate shipping
         $shippingCost = 0;
+        $address = null;
+        if (!empty($validated['shipping_address_id'])) {
+            $address = \App\Models\Address::find($validated['shipping_address_id']);
+        }
+        
         if (!empty($validated['shipping_method'])) {
             $shippingCost = $this->shippingService->getShippingCostForMethod(
                 $validated['shipping_method'],
                 $validated['items'],
-                null,
+                $address,
                 $subtotal
             );
         }

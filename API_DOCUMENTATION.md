@@ -184,7 +184,163 @@ Authorization: Bearer {token}
 
 ---
 
-### 4. Notifications
+### 4. Shipping & Checkout
+
+#### Get Available Shipping Methods
+```
+POST /api/checkout/shipping-methods
+Authorization: Bearer {token}
+Content-Type: application/json
+
+{
+  "items": [
+    {
+      "product_id": 1,
+      "variation_id": 5,
+      "quantity": 2
+    }
+  ],
+  "address_id": 10,
+  "subtotal": 5000.00
+}
+```
+
+**Response:**
+```json
+{
+  "success": true,
+  "data": [
+    {
+      "code": "pathao_courier",
+      "name": "Pathao Courier",
+      "description": "Fast and reliable courier service for standard deliveries",
+      "cost": 120.00,
+      "delivery_time": "2-3 business days",
+      "free_shipping_min_order": 3000.00,
+      "is_free": false,
+      "recommended": true
+    },
+    {
+      "code": "shah_sports_team",
+      "name": "Shah Sports Team Delivery",
+      "description": "Our own delivery team for heavy and large items",
+      "cost": 250.00,
+      "delivery_time": "3-5 business days",
+      "free_shipping_min_order": 5000.00,
+      "is_free": false,
+      "recommended": false
+    }
+  ]
+}
+```
+
+**Shipping Methods:**
+- `pathao_courier` - Standard courier service (recommended for items ≤20kg)
+- `shah_sports_team` - Heavy/large item delivery (recommended for items >20kg)
+
+**Notes:**
+- `recommended` flag indicates the best method based on weight and dimensions
+- `is_free` is true when subtotal meets free shipping threshold
+- Costs are calculated based on product weight, dimensions, and delivery location
+
+#### Checkout Preview
+```
+POST /api/checkout/preview
+Authorization: Bearer {token}
+Content-Type: application/json
+
+{
+  "items": [
+    {
+      "product_id": 1,
+      "variation_id": null,
+      "quantity": 2,
+      "price": 1500.00,
+      "is_preorder": false
+    }
+  ],
+  "shipping_address_id": 10,
+  "shipping_method": "pathao_courier",
+  "coupon_code": "SAVE10",
+  "is_preorder": false,
+  "pay_deposit_only": false
+}
+```
+
+**Response:**
+```json
+{
+  "success": true,
+  "data": {
+    "subtotal": 3000.00,
+    "shipping_cost": 120.00,
+    "coupon_discount": 300.00,
+    "total": 2820.00,
+    "is_preorder": false,
+    "deposit_amount": null,
+    "remaining_amount": null,
+    "payable_now": 2820.00
+  }
+}
+```
+
+#### Process Checkout
+```
+POST /api/checkout/process
+Authorization: Bearer {token}
+Content-Type: application/json
+
+{
+  "items": [
+    {
+      "product_id": 1,
+      "variation_id": null,
+      "quantity": 2,
+      "price": 1500.00,
+      "is_preorder": false
+    }
+  ],
+  "shipping_address_id": 10,
+  "billing_address_id": 10,
+  "shipping_method": "pathao_courier",
+  "payment_method": "ssl_commerz",
+  "coupon_code": "SAVE10",
+  "notes": "Please call before delivery",
+  "is_preorder": false,
+  "pay_deposit_only": false
+}
+```
+
+**Payment Methods:**
+- `ssl_commerz` - SSLCommerz payment gateway
+- `bkash` - bKash mobile payment
+- `nagad` - Nagad mobile payment
+
+**Response:**
+```json
+{
+  "success": true,
+  "message": "Order created successfully.",
+  "data": {
+    "order": {
+      "id": 123,
+      "order_number": "ORD-20260302-123",
+      "status": "pending",
+      "total": 2820.00,
+      ...
+    },
+    "payment": {
+      "gateway_url": "https://payment-gateway.com/...",
+      "session_key": "...",
+      ...
+    }
+  }
+}
+```
+
+---
+
+### 5. Notifications
 
 #### Get All Notifications
 ```
@@ -268,6 +424,78 @@ php artisan migrate
 
 ---
 
+## Admin Shipping Management
+
+### List Shipping Rates
+```
+GET /api/admin/shipping-rates
+Authorization: Bearer {admin_token}
+```
+
+### Create Shipping Rate
+```
+POST /api/admin/shipping-rates
+Authorization: Bearer {admin_token}
+Content-Type: application/json
+
+{
+  "name": "Pathao Standard",
+  "shipping_class_id": null,
+  "method": "pathao_courier",
+  "country": "Bangladesh",
+  "delivery_time": "2-3 business days",
+  "free_shipping_min_order": 3000.00,
+  "base_cost": 60.00,
+  "is_active": true
+}
+```
+
+### Update Shipping Rate
+```
+PUT /api/admin/shipping-rates/{id}
+Authorization: Bearer {admin_token}
+Content-Type: application/json
+```
+
+### Delete Shipping Rate
+```
+DELETE /api/admin/shipping-rates/{id}
+Authorization: Bearer {admin_token}
+```
+
+### List Shipping Classes
+```
+GET /api/admin/shipping-classes
+Authorization: Bearer {admin_token}
+```
+
+### Create Shipping Class
+```
+POST /api/admin/shipping-classes
+Authorization: Bearer {admin_token}
+Content-Type: application/json
+
+{
+  "name": "Heavy Equipment",
+  "description": "Large and heavy sports equipment"
+}
+```
+
+### Update Shipping Class
+```
+PUT /api/admin/shipping-classes/{id}
+Authorization: Bearer {admin_token}
+Content-Type: application/json
+```
+
+### Delete Shipping Class
+```
+DELETE /api/admin/shipping-classes/{id}
+Authorization: Bearer {admin_token}
+```
+
+---
+
 ## Features Summary
 
 ### User Dashboard
@@ -299,6 +527,26 @@ php artisan migrate
 ✅ Mark as read (single/all)
 ✅ Delete notifications
 ✅ Clear all notifications
+
+### Shipping & Checkout
+✅ Calculate shipping costs based on weight and location
+✅ Multiple shipping methods (Pathao Courier, Shah Sports Team)
+✅ Location-based pricing (city/state/default)
+✅ Weight-based cost calculation (per-unit or tiered rules)
+✅ Free shipping thresholds
+✅ Smart method recommendations
+✅ Automatic weight unit conversion (kg, g, lb, oz)
+✅ Shipping classes for product categorization
+✅ Checkout preview with all costs
+✅ Complete order processing with payment integration
+
+### Admin Shipping Management
+✅ Manage shipping rates (CRUD)
+✅ Manage shipping classes (CRUD)
+✅ Configure weight cost rules
+✅ Set location-based pricing
+✅ Enable/disable shipping methods
+✅ Configure free shipping thresholds
 
 ---
 
@@ -334,6 +582,35 @@ curl -X POST http://your-domain.com/api/addresses \
   }'
 ```
 
+### Example: Get Shipping Methods
+```bash
+curl -X POST http://your-domain.com/api/checkout/shipping-methods \
+  -H "Authorization: Bearer YOUR_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "items": [
+      {"product_id": 1, "variation_id": null, "quantity": 2}
+    ],
+    "address_id": 10,
+    "subtotal": 5000
+  }'
+```
+
+### Example: Checkout Preview
+```bash
+curl -X POST http://your-domain.com/api/checkout/preview \
+  -H "Authorization: Bearer YOUR_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "items": [
+      {"product_id": 1, "quantity": 2, "price": 1500}
+    ],
+    "shipping_address_id": 10,
+    "shipping_method": "pathao_courier",
+    "coupon_code": "SAVE10"
+  }'
+```
+
 ---
 
 ## Error Responses
@@ -357,10 +634,72 @@ Common HTTP status codes:
 
 ---
 
+## Shipping System Details
+
+### How Shipping Calculation Works
+
+1. **Product Data Enrichment**
+   - System automatically fetches product weight, dimensions, and shipping class
+   - Supports weight units: kg, g, lb, oz (auto-converted to kg)
+
+2. **Weight Calculation**
+   - Total weight = sum of (product_weight × quantity) for all items
+   - Variations can override product weight
+
+3. **Method Selection**
+   - Pathao Courier: Recommended for items ≤20kg
+   - Shah Sports Team: Recommended for items >20kg or large dimensions
+
+4. **Cost Calculation**
+   - **Per Unit Method**: base_cost + (total_weight × per_unit_cost)
+   - **Rules Method**: base_cost + cost_from_weight_tier
+   - **Location-based**: Different rates for city/state/default
+
+5. **Free Shipping**
+   - Applied when: subtotal ≥ free_shipping_min_order
+   - Configured per shipping method
+
+### Shipping Configuration
+
+**Database Tables:**
+- `shipping_classes` - Product categories (e.g., Heavy, Standard)
+- `shipping_rates` - Base method configuration
+- `weight_cost_rules` - Location and calculation rules
+- `weight_cost_rule_items` - Weight tiers for rules-based pricing
+
+**Example Configuration:**
+
+```sql
+-- Create shipping rate
+INSERT INTO shipping_rates (name, method, base_cost, free_shipping_min_order, delivery_time, is_active)
+VALUES ('Pathao Standard', 'pathao_courier', 60, 3000, '2-3 business days', 1);
+
+-- Create per-unit weight rule
+INSERT INTO weight_cost_rules (shipping_rate_id, shipping_calculation_method, per_unit_cost)
+VALUES (1, 'per_unit', 15);
+
+-- Or create tiered weight rules
+INSERT INTO weight_cost_rules (shipping_rate_id, shipping_calculation_method, default_rule_cost)
+VALUES (1, 'rules', 500);
+
+INSERT INTO weight_cost_rule_items (weight_cost_rule_id, weight, cost) VALUES
+(1, 5, 50),   -- Up to 5kg: ৳50
+(1, 10, 100), -- Up to 10kg: ৳100
+(1, 20, 200); -- Up to 20kg: ৳200
+```
+
+For detailed shipping system documentation, see:
+- **SHIPPING_SYSTEM_GUIDE.md** - Comprehensive guide with examples
+- **SHIPPING_API_REFERENCE.md** - Complete API reference
+- **SHIPPING_SYSTEM_SUMMARY.md** - Quick implementation summary
+
+---
+
 ## Next Steps
 
 1. Run migrations: `php artisan migrate`
-2. Test the endpoints using Postman or similar tool
-3. Integrate with your frontend application
-4. Configure notification channels as needed
-5. Add custom notification types for order updates, low stock alerts, etc.
+2. Configure shipping rates and rules (see SHIPPING_SYSTEM_GUIDE.md)
+3. Test the endpoints using Postman or similar tool
+4. Integrate with your frontend application
+5. Configure notification channels as needed
+6. Add custom notification types for order updates, low stock alerts, etc.
