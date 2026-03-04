@@ -1,92 +1,92 @@
-# Complete E-Commerce API Documentation
+# Complete API Documentation - E-Commerce Platform
 
-## 📚 Table of Contents
-
-1. [Overview](#overview)
-2. [Authentication](#authentication)
-3. [Public APIs](#public-apis)
-4. [Customer APIs](#customer-apis)
-5. [Admin APIs](#admin-apis)
-6. [Response Format](#response-format)
-7. [Error Handling](#error-handling)
-
----
-
-## Overview
-
-**Base URL:** `http://your-domain.com/api`  
-**Total Endpoints:** 197  
-**Authentication:** Bearer Token (Laravel Sanctum)
-
-### API Categories
-- **Public APIs** - No authentication required
-- **Customer APIs** - Requires customer authentication
-- **Admin APIs** - Requires admin authentication
+## Table of Contents
+1. [Authentication](#authentication)
+2. [Admin Endpoints](#admin-endpoints)
+3. [Public Endpoints](#public-endpoints)
+4. [User Endpoints](#user-endpoints)
+5. [Pagination Format](#pagination-format)
+6. [Error Responses](#error-responses)
 
 ---
 
 ## Authentication
 
-### Register
-```http
-POST /api/auth/register
-Content-Type: application/json
+All authenticated endpoints require a Bearer token in the Authorization header:
 
-{
-  "name": "John Doe",
-  "email": "john@example.com",
-  "phone": "+1234567890",
-  "password": "password123",
-  "password_confirmation": "password123"
-}
+```
+Authorization: Bearer {your_token_here}
 ```
 
 ### Login
-```http
+```
 POST /api/auth/login
 Content-Type: application/json
 
 {
-  "email": "john@example.com",
+  "email": "user@example.com",
   "password": "password123"
 }
-```
 
-**Response:**
-```json
+Response:
 {
   "success": true,
   "message": "Login successful.",
   "data": {
-    "user": {...},
-    "token": "1|abc123..."
+    "user": { ... },
+    "token": "your_access_token"
   }
 }
 ```
 
-### Logout
-```http
-POST /api/auth/logout
-Authorization: Bearer {token}
-```
+---
 
-### Get Current User
-```http
-GET /api/auth/user
-Authorization: Bearer {token}
-```
+## Pagination Format
 
-### Update Profile
-```http
-PUT /api/auth/profile
-Authorization: Bearer {token}
-Content-Type: application/json
+All paginated endpoints return data in this format:
 
+```json
 {
-  "name": "John Doe",
-  "phone": "+1234567890"
+  "success": true,
+  "data": {
+    "current_page": 1,
+    "data": [
+      { "id": 1, "name": "Item 1" },
+      { "id": 2, "name": "Item 2" }
+    ],
+    "first_page_url": "http://localhost:8000/api/admin/brands?page=1",
+    "from": 1,
+    "last_page": 5,
+    "last_page_url": "http://localhost:8000/api/admin/brands?page=5",
+    "links": [
+      { "url": null, "label": "&laquo; Previous", "active": false },
+      { "url": "http://localhost:8000/api/admin/brands?page=1", "label": "1", "active": true },
+      { "url": "http://localhost:8000/api/admin/brands?page=2", "label": "2", "active": false },
+      { "url": "http://localhost:8000/api/admin/brands?page=2", "label": "Next &raquo;", "active": false }
+    ],
+    "next_page_url": "http://localhost:8000/api/admin/brands?page=2",
+    "path": "http://localhost:8000/api/admin/brands",
+    "per_page": 15,
+    "prev_page_url": null,
+    "to": 15,
+    "total": 67
+  }
 }
 ```
+
+**Important:** Access the actual data array via `response.data.data`
+
+---
+
+## Admin Endpoints
+
+All admin endpoints require authentication and admin role.
+
+### 1. Brands
+
+#### List All Brands (Paginated)
+```
+GET
 
 ### Change Password
 ```http

@@ -64,7 +64,12 @@ class CatalogService implements CatalogServiceInterface
                 $this->syncProductImages($product, $data['images']);
             }
 
-            return $product->load(['category', 'brand', 'model', 'images']);
+            // Handle variations if provided
+            if (!empty($data['variations'])) {
+                $this->syncProductVariations($product, $data['variations']);
+            }
+
+            return $product->load(['category', 'brand', 'model', 'images', 'variations.variationValues.variationOption.variation']);
         });
     }
 
@@ -115,7 +120,12 @@ class CatalogService implements CatalogServiceInterface
                 $this->syncProductImages($product, $data['images']);
             }
 
-            return $product->fresh(['category', 'brand', 'model', 'images', 'variations']);
+            // Handle variations if provided
+            if (isset($data['variations'])) {
+                $this->syncProductVariations($product, $data['variations']);
+            }
+
+            return $product->fresh(['category', 'brand', 'model', 'images', 'variations.variationValues.variationOption.variation']);
         });
     }
 
@@ -371,14 +381,140 @@ class CatalogService implements CatalogServiceInterface
         // Delete existing images
         $product->images()->delete();
 
+        // Ensure only one primary image
+        $hasPrimary = false;
+        foreach ($images as $image) {
+            if (isset($image['is_primary']) && $image['is_primary']) {
+                $hasPrimary = true;
+                break;
+            }
+        }
+
         // Create new images
         foreach ($images as $index => $image) {
+            $isPrimary = isset($image['is_primary']) && $image['is_primary'];
+            
+            // If no primary is set, make the first image primary
+            if (!$hasPrimary && $index === 0) {
+                $isPrimary = true;
+            }
+
             $product->images()->create([
                 'image_path' => $image['path'],
                 'alt_text' => $image['alt_text'] ?? null,
-                'is_primary' => $image['is_primary'] ?? ($index === 0),
+                'is_primary' => $isPrimary,
                 'sort_order' => $image['sort_order'] ?? $index,
             ]);
         }
+    }
+
+    /**
+     * Sync product variations.
+     * 
+     * @param Product $product
+     * @param array $variations
+     * @return void
+     */
+    protected function syncProductVariations(Product $product, array $variations): void
+    {
+        $existingVariationIds = [];
+
+        foreach ($variations as $index => $variationData) {
+            // Check if this is an update (has ID) or create (no ID)
+            if (isset($variationData['id'])) {
+                // Update existing variation
+                $variation = $product->variations()->find($variationData['id']);
+                
+                if ($variation) {
+                    // Check if marked for deletion
+                    if (isset($variationData['_delete']) && $variationData['_delete']) {
+                        $variation->delete();
+                        continue;
+                    }
+
+                    // Update variation
+                    $updateData = [];
+                    if (isset($variationData['sku'])) {
+                        $updateData['sku'] = $variationData['sku'];
+                    }
+                    if (isset($variationData['price'])) {
+                        $updateData['price'] = $variationData['price'];
+                    }
+                    if (isset($variationData['quantity'])) {
+                        $updateData['quantity'] = $variationData['quantity'];
+                    }
+                    if (isset($variationData['is_default'])) {
+                        $updateData['is_default'] = $variationData['is_default'];
+                        
+                        // If setting as default, unset others
+                        if ($variationData['is_default']) {
+                            $product->variations()->where('id', '!=', $variation->id)->update(['is_default' => false]);
+                        }
+                    }
+
+                    if (!empty($updateData)) {
+                        $variation->update($updateData);
+                    }
+
+                    // Update variation values if provided
+                    if (isset($variationData['variation_values'])) {
+                        $variation->variationValues()->delete();
+                        foreach ($variationData['variation_values'] as $optionId) {
+                            $variation->variationValues()->create([
+                                'variation_option_id' => $optionId,
+                            ]);
+                        }
+                    }
+
+                    $existingVariationIds[] = $variation->id;
+                }
+            } else {
+                // Create new variation
+                $sku = $variationData['sku'] ?? $this->generateVariationSku($product, $index + 1);
+                $isDefault = $variationData['is_default'] ?? ($index === 0 && $product->variations()->count() === 0);
+
+                $variation = $product->variations()->create([
+                    'sku' => $sku,
+                    'price' => $variationData['price'] ?? null,
+                    'quantity' => $variationData['quantity'] ?? 0,
+                    'is_default' => $isDefault,
+                ]);
+
+                // If this is set as default, unset other defaults
+                if ($isDefault) {
+                    $product->variations()->where('id', '!=', $variation->id)->update(['is_default' => false]);
+                }
+
+                // Create variation values if provided
+                if (!empty($variationData['variation_values'])) {
+                    foreach ($variationData['variation_values'] as $optionId) {
+                        $variation->variationValues()->create([
+                            'variation_option_id' => $optionId,
+                        ]);
+                    }
+                }
+
+                $existingVariationIds[] = $variation->id;
+            }
+        }
+    }
+
+    /**
+     * Generate unique SKU for variation.
+     * 
+     * @param Product $product
+     * @param int $counter
+     * @return string
+     */
+    protected function generateVariationSku(Product $product, int $counter = 1): string
+    {
+        $baseSku = $product->sku;
+
+        do {
+            $sku = $baseSku . '-V' . $counter;
+            $counter++;
+        } while (\App\Models\ProductVariation::where('sku', $sku)->exists());
+
+        return $sku;
     }
 }

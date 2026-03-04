@@ -120,7 +120,10 @@ class ContentController extends Controller
             $query->where('is_active', $request->boolean('is_active'));
         }
 
-        $pages = $query->orderBy('title')->get();
+        $query->orderBy('title');
+
+        $perPage = $request->get('per_page', 15);
+        $pages = $query->paginate($perPage);
 
         return response()->json([
             'success' => true,
@@ -251,7 +254,10 @@ class ContentController extends Controller
             $query->where('is_active', $request->boolean('is_active'));
         }
 
-        $banners = $query->orderBy('sort_order')->get();
+        $query->orderBy('sort_order');
+
+        $perPage = $request->get('per_page', 15);
+        $banners = $query->paginate($perPage);
 
         return response()->json([
             'success' => true,

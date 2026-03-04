@@ -123,6 +123,14 @@ class Product extends Model
     {
         return $this->belongsTo(ProductModel::class, 'model_id');
     }
+    /**
+     * Get the product model (alias for productModel).
+     */
+    public function model()
+    {
+        return $this->belongsTo(ProductModel::class, 'model_id');
+    }
+
 
     /**
      * Get the shipping class.
@@ -145,7 +153,7 @@ class Product extends Model
      */
     public function images()
     {
-        return $this->hasMany(ProductImage::class);
+        return $this->hasMany(ProductImage::class)->orderBy('sort_order', 'asc');
     }
 
     /**
@@ -154,6 +162,23 @@ class Product extends Model
     public function primaryImage()
     {
         return $this->hasOne(ProductImage::class)->where('is_primary', true);
+    }
+
+    /**
+     * Get primary image URL.
+     */
+    public function getPrimaryImageUrlAttribute(): ?string
+    {
+        $primaryImage = $this->primaryImage;
+        return $primaryImage ? $primaryImage->full_url : null;
+    }
+
+    /**
+     * Get all image URLs.
+     */
+    public function getImageUrlsAttribute(): array
+    {
+        return $this->images->pluck('full_url')->toArray();
     }
 
     /**

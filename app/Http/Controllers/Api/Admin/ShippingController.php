@@ -26,7 +26,10 @@ class ShippingController extends Controller
             $query->where('is_active', $request->boolean('is_active'));
         }
 
-        $rates = $query->orderBy('method')->orderBy('name')->get();
+        $query->orderBy('method')->orderBy('name');
+
+        $perPage = $request->get('per_page', 15);
+        $rates = $query->paginate($perPage);
 
         return response()->json([
             'success' => true,

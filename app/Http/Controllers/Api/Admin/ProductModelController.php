@@ -20,7 +20,10 @@ class ProductModelController extends Controller
             $query->where('brand_id', $request->brand_id);
         }
 
-        $models = $query->orderBy('name')->get();
+        $query->orderBy('name');
+
+        $perPage = $request->get('per_page', 15);
+        $models = $query->paginate($perPage);
 
         return response()->json([
             'success' => true,

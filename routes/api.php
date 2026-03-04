@@ -158,6 +158,24 @@ Route::prefix('admin')->middleware(['auth:sanctum', 'admin'])->group(function ()
     Route::post('products/{id}/variations', [\App\Http\Controllers\Api\Admin\ProductController::class, 'addVariation']);
     Route::put('products/{productId}/variations/{variationId}', [\App\Http\Controllers\Api\Admin\ProductController::class, 'updateVariation']);
     Route::delete('products/{productId}/variations/{variationId}', [\App\Http\Controllers\Api\Admin\ProductController::class, 'deleteVariation']);
+    
+    // Product Images
+    Route::post('products/{id}/images', [\App\Http\Controllers\Api\Admin\ProductController::class, 'addImages']);
+    Route::put('products/{productId}/images/{imageId}', [\App\Http\Controllers\Api\Admin\ProductController::class, 'updateImage']);
+    Route::delete('products/{productId}/images/{imageId}', [\App\Http\Controllers\Api\Admin\ProductController::class, 'deleteImage']);
+    Route::post('products/{productId}/images/{imageId}/set-primary', [\App\Http\Controllers\Api\Admin\ProductController::class, 'setPrimaryImage']);
+    Route::post('products/{productId}/images/reorder', [\App\Http\Controllers\Api\Admin\ProductController::class, 'reorderImages']);
+
+    // Variation Types (Size, Color, etc.)
+    Route::apiResource('variations', \App\Http\Controllers\Api\Admin\VariationController::class);
+    
+    // Variation Options (S, M, L, Red, Blue, etc.)
+    Route::get('variations/{variationId}/options', [\App\Http\Controllers\Api\Admin\VariationOptionController::class, 'index']);
+    Route::post('variations/{variationId}/options', [\App\Http\Controllers\Api\Admin\VariationOptionController::class, 'store']);
+    Route::post('variations/{variationId}/options/bulk', [\App\Http\Controllers\Api\Admin\VariationOptionController::class, 'bulkStore']);
+    Route::get('variations/{variationId}/options/{optionId}', [\App\Http\Controllers\Api\Admin\VariationOptionController::class, 'show']);
+    Route::put('variations/{variationId}/options/{optionId}', [\App\Http\Controllers\Api\Admin\VariationOptionController::class, 'update']);
+    Route::delete('variations/{variationId}/options/{optionId}', [\App\Http\Controllers\Api\Admin\VariationOptionController::class, 'destroy']);
 
     // Brands & Models
     Route::apiResource('brands', \App\Http\Controllers\Api\Admin\BrandController::class);

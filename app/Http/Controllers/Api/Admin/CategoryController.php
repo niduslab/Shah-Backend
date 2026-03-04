@@ -25,7 +25,10 @@ class CategoryController extends Controller
             $query->active();
         }
 
-        $categories = $query->orderBy('sort_order')->orderBy('name')->get();
+        $query->orderBy('sort_order')->orderBy('name');
+
+        $perPage = $request->get('per_page', 15);
+        $categories = $query->paginate($perPage);
 
         return response()->json([
             'success' => true,

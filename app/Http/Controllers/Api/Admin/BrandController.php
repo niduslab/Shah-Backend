@@ -6,6 +6,8 @@ use App\Http\Controllers\Controller;
 use App\Models\Brand;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 
 class BrandController extends Controller
@@ -25,7 +27,10 @@ class BrandController extends Controller
             $query->where('name', 'like', '%' . $request->search . '%');
         }
 
-        $brands = $query->orderBy('sort_order')->orderBy('name')->get();
+        $query->orderBy('sort_order')->orderBy('name');
+
+        $perPage = $request->get('per_page', 10);
+        $brands = $query->paginate($perPage);
 
         return response()->json([
             'success' => true,
@@ -40,21 +45,50 @@ class BrandController extends Controller
     {
         $validated = $request->validate([
             'name' => 'required|string|max:255',
-            'logo' => 'nullable|string|max:255',
+            'logo' => 'nullable|image|mimes:jpeg,png,webp|max:2048',
             'description' => 'nullable|string',
             'sort_order' => 'nullable|integer|min:0',
             'is_active' => 'nullable|boolean',
         ]);
 
-        $validated['slug'] = $this->generateUniqueSlug($validated['name']);
+        $uploadedPath = null;
 
-        $brand = Brand::create($validated);
+        DB::beginTransaction();
 
-        return response()->json([
-            'success' => true,
-            'message' => 'Brand created successfully.',
-            'data' => $brand,
-        ], 201);
+        try {
+            if ($request->hasFile('logo')) {
+                $uploadedPath = $request->file('logo')->store('storage/brands', 'public');
+                $validated['logo'] = $uploadedPath;
+            }
+
+            $validated['slug'] = $this->generateUniqueSlug($validated['name']);
+
+            $brand = Brand::create($validated);
+
+            DB::commit();
+
+            // Return full URL for logo
+            $brandData = $brand->toArray();
+            if ($brand->logo) {
+                $brandData['logo'] = Storage::disk('public')->url($brand->logo);
+            }
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Brand created successfully.',
+                'data' => $brandData,
+            ], 201);
+
+        } catch (\Exception $e) {
+            DB::rollBack();
+
+            // Clean up uploaded file if DB transaction fails
+            if ($uploadedPath && Storage::disk('public')->exists($uploadedPath)) {
+                Storage::disk('public')->delete($uploadedPath);
+            }
+
+            throw $e;
+        }
     }
 
     /**
@@ -93,23 +127,58 @@ class BrandController extends Controller
 
         $validated = $request->validate([
             'name' => 'sometimes|string|max:255',
-            'logo' => 'nullable|string|max:255',
+            'logo' => 'nullable|image|mimes:jpeg,png,webp|max:2048',
             'description' => 'nullable|string',
             'sort_order' => 'nullable|integer|min:0',
             'is_active' => 'nullable|boolean',
         ]);
 
-        if (isset($validated['name']) && $validated['name'] !== $brand->name) {
-            $validated['slug'] = $this->generateUniqueSlug($validated['name'], $id);
+        $uploadedPath = null;
+        $oldLogo = $brand->logo;
+
+        DB::beginTransaction();
+
+        try {
+            if ($request->hasFile('logo')) {
+                $uploadedPath = $request->file('logo')->store('storage/brands', 'public');
+                $validated['logo'] = $uploadedPath;
+            }
+
+            if (isset($validated['name']) && $validated['name'] !== $brand->name) {
+                $validated['slug'] = $this->generateUniqueSlug($validated['name'], $id);
+            }
+
+            $brand->update($validated);
+
+            DB::commit();
+
+            // Delete old logo if a new one was uploaded and update was successful
+            if ($uploadedPath && $oldLogo && Storage::disk('public')->exists($oldLogo)) {
+                Storage::disk('public')->delete($oldLogo);
+            }
+
+            // Return full URL for logo
+            $brandData = $brand->fresh()->toArray();
+            if ($brand->logo) {
+                $brandData['logo'] = Storage::disk('public')->url($brand->logo);
+            }
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Brand updated successfully.',
+                'data' => $brandData,
+            ]);
+
+        } catch (\Exception $e) {
+            DB::rollBack();
+
+            // Clean up uploaded file if DB transaction fails
+            if ($uploadedPath && Storage::disk('public')->exists($uploadedPath)) {
+                Storage::disk('public')->delete($uploadedPath);
+            }
+
+            throw $e;
         }
-
-        $brand->update($validated);
-
-        return response()->json([
-            'success' => true,
-            'message' => 'Brand updated successfully.',
-            'data' => $brand->fresh(),
-        ]);
     }
 
     /**
