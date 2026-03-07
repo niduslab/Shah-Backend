@@ -69,25 +69,28 @@ class PaymentService implements PaymentServiceInterface
      * 
      * @param Order $order
      * @param float $amount
+     * @param string $method
      * @return Payment
      */
-    public function recordManualPayment(Order $order, float $amount): Payment
+    public function recordManualPayment(Order $order, float $amount, string $method = 'manual'): Payment
     {
-        return DB::transaction(function () use ($order, $amount) {
+        return DB::transaction(function () use ($order, $amount, $method) {
             $payment = Payment::create([
                 'order_id' => $order->id,
                 'user_id' => $order->user_id,
                 'amount' => $amount,
                 'currency' => 'BDT',
-                'payment_method' => 'manual',
+                'payment_method' => 'manual', // DB enum constraint
                 'transaction_id' => $this->generateTransactionId('MAN'),
                 'status' => 'completed',
+                'gateway_response' => ['method' => $method], // Store actual method (cash/card) here
                 'paid_at' => now(),
             ]);
 
             // Update order payment status
             $order->update([
                 'payment_status' => 'paid',
+                'status' => 'confirmed',
             ]);
 
             return $payment;

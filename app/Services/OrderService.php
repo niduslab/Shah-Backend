@@ -203,6 +203,7 @@ class OrderService implements OrderServiceInterface
                 'order_type' => 'in_store',
                 'subtotal' => $subtotal,
                 'shipping_cost' => 0,
+                'shipping_method' => 'none',
                 'discount_amount' => $discountAmount,
                 'tax_amount' => 0,
                 'total_amount' => $totalAmount,

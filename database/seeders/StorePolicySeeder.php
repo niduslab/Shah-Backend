@@ -11,7 +11,7 @@ class StorePolicySeeder extends Seeder
     {
         $policies = [
             [
-                'policy_type' => 'return_policy',
+                'policy_type' => 'return_refund',
                 'title' => 'Return & Refund Policy',
                 'slug' => 'return-policy',
                 'content' => '
@@ -54,7 +54,7 @@ Phone: +880 1700-000001
                 'is_active' => true,
             ],
             [
-                'policy_type' => 'shipping_policy',
+                'policy_type' => 'shipping',
                 'title' => 'Shipping Policy',
                 'slug' => 'shipping-policy',
                 'content' => '
@@ -99,7 +99,7 @@ If you experience any delivery issues, please contact us within 24 hours:
                 'is_active' => true,
             ],
             [
-                'policy_type' => 'privacy_policy',
+                'policy_type' => 'privacy',
                 'title' => 'Privacy Policy',
                 'slug' => 'privacy-policy',
                 'content' => '
@@ -150,7 +150,7 @@ Phone: +880 1700-000001
                 'is_active' => true,
             ],
             [
-                'policy_type' => 'terms_conditions',
+                'policy_type' => 'terms',
                 'title' => 'Terms & Conditions',
                 'slug' => 'terms-conditions',
                 'content' => '

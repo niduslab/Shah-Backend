@@ -7,6 +7,7 @@ use App\Models\FlashDeal;
 use App\Models\Product;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 
 class FlashDealController extends Controller
 {
@@ -38,6 +39,9 @@ class FlashDealController extends Controller
         ]);
     }
 
+    /**
+     * Store a new flash deal.
+     */
     public function store(Request $request): JsonResponse
     {
         $validated = $request->validate([
@@ -52,26 +56,110 @@ class FlashDealController extends Controller
             'per_user_limit' => 'nullable|integer|min:1',
             'is_active' => 'nullable|boolean',
             'priority' => 'nullable|integer',
-            'products' => 'required|array|min:1',
-            'products.*.product_id' => 'required|exists:products,id',
-            'products.*.flash_price' => 'required|numeric|min:0',
+            // Products can be passed directly OR categories can be selected
+            'products' => 'nullable|array',
+            'products.*.product_id' => 'required_with:products|exists:products,id',
+            'products.*.flash_price' => 'nullable|numeric|min:0', // Optional if calculating from discount
             'products.*.quantity_limit' => 'nullable|integer|min:1',
+            'categories' => 'nullable|array',
+            'categories.*' => 'exists:categories,id',
         ]);
 
-        $flashDeal = FlashDeal::create($validated);
-
-        foreach ($validated['products'] as $productData) {
-            $flashDeal->products()->attach($productData['product_id'], [
-                'flash_price' => $productData['flash_price'],
-                'quantity_limit' => $productData['quantity_limit'] ?? null,
-            ]);
+        if (empty($validated['products']) && empty($validated['categories'])) {
+            return response()->json([
+                'success' => false,
+                'message' => 'You must select either products or categories.',
+            ], 422);
         }
 
-        return response()->json([
-            'success' => true,
-            'message' => 'Flash deal created successfully.',
-            'data' => $flashDeal->load('products'),
-        ], 201);
+        DB::beginTransaction();
+
+        try {
+            $flashDeal = FlashDeal::create([
+                'title' => $validated['title'],
+                'description' => $validated['description'] ?? null,
+                'starts_at' => $validated['starts_at'],
+                'ends_at' => $validated['ends_at'],
+                'discount_type' => $validated['discount_type'],
+                'discount_value' => $validated['discount_value'],
+                'max_discount_amount' => $validated['max_discount_amount'] ?? null,
+                'quantity_limit' => $validated['quantity_limit'] ?? null,
+                'per_user_limit' => $validated['per_user_limit'] ?? null,
+                'is_active' => $validated['is_active'] ?? true,
+                'priority' => $validated['priority'] ?? 0,
+            ]);
+
+            $productsToAttach = [];
+
+            // 1. Handle manually selected products
+            if (!empty($validated['products'])) {
+                foreach ($validated['products'] as $item) {
+                    $productId = $item['product_id'];
+                    // Use provided flash price or calculate it later
+                    $productsToAttach[$productId] = [
+                        'flash_price' => $item['flash_price'] ?? null,
+                        'quantity_limit' => $item['quantity_limit'] ?? null,
+                    ];
+                }
+            }
+
+            // 2. Handle category-based product selection
+            if (!empty($validated['categories'])) {
+                $categoryProducts = Product::whereIn('category_id', $validated['categories'])->get();
+
+                foreach ($categoryProducts as $product) {
+                    // Avoid duplicates if product was also selected manually
+                    if (!isset($productsToAttach[$product->id])) {
+                        $productsToAttach[$product->id] = [
+                            'flash_price' => null, // Will be calculated
+                            'quantity_limit' => null,
+                        ];
+                    }
+                }
+            }
+
+            // 3. Attach products and calculate prices if needed
+            foreach ($productsToAttach as $productId => $data) {
+                // If flash_price is not provided, calculate it based on product price and discount
+                if (is_null($data['flash_price'])) {
+                    $product = Product::find($productId);
+                    if ($product) {
+                        $price = $product->price;
+                        $discount = 0;
+
+                        if ($validated['discount_type'] === 'percentage') {
+                            $discount = ($price * $validated['discount_value']) / 100;
+                            if (isset($validated['max_discount_amount']) && $discount > $validated['max_discount_amount']) {
+                                $discount = $validated['max_discount_amount'];
+                            }
+                        } else {
+                            $discount = $validated['discount_value'];
+                        }
+
+                        $data['flash_price'] = max(0, $price - $discount);
+                    } else {
+                        continue; // Skip if product not found (shouldn't happen due to validation/query)
+                    }
+                }
+
+                $flashDeal->products()->attach($productId, [
+                    'flash_price' => $data['flash_price'],
+                    'quantity_limit' => $data['quantity_limit'],
+                ]);
+            }
+
+            DB::commit();
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Flash deal created successfully.',
+                'data' => $flashDeal->load('products'),
+            ], 201);
+
+        } catch (\Exception $e) {
+            DB::rollBack();
+            throw $e;
+        }
     }
 
     public function show(int $id): JsonResponse

@@ -214,10 +214,12 @@ class CouponService implements CouponServiceInterface
      */
     protected function couponAppliesToCart(Coupon $coupon, array $cartItems): bool
     {
-        if ($coupon->applies_to === 'all_products') {
+        // If applies to all, always valid
+        if ($coupon->applies_to === 'all') {
             return true;
         }
 
+        // Check if any cart item matches the coupon criteria
         foreach ($cartItems as $item) {
             $product = Product::find($item['product_id']);
             if (!$product) {
@@ -241,22 +243,38 @@ class CouponService implements CouponServiceInterface
      */
     protected function couponAppliesToProduct(Coupon $coupon, Product $product): bool
     {
-        switch ($coupon->applies_to) {
-            case 'all_products':
-                return true;
-
-            case 'specific_products':
-                return $coupon->products->contains('id', $product->id);
-
-            case 'specific_brands':
-                return $product->brand_id && $coupon->brands->contains('id', $product->brand_id);
-
-            case 'specific_categories':
-                return $coupon->categories->contains('id', $product->category_id);
-
-            default:
-                return false;
+        // If applies to all, always valid
+        if ($coupon->applies_to === 'all') {
+            return true;
         }
+
+        // Get the types this coupon applies to
+        $appliesTo = explode(',', $coupon->applies_to);
+        
+        // Check each type
+        foreach ($appliesTo as $type) {
+            switch (trim($type)) {
+                case 'products':
+                    if ($coupon->products->contains('id', $product->id)) {
+                        return true;
+                    }
+                    break;
+
+                case 'brands':
+                    if ($product->brand_id && $coupon->brands->contains('id', $product->brand_id)) {
+                        return true;
+                    }
+                    break;
+
+                case 'categories':
+                    if ($coupon->categories->contains('id', $product->category_id)) {
+                        return true;
+                    }
+                    break;
+            }
+        }
+
+        return false;
     }
 
     /**
@@ -269,7 +287,8 @@ class CouponService implements CouponServiceInterface
      */
     protected function calculateEligibleAmount(Coupon $coupon, array $cartItems, float $subtotal): float
     {
-        if ($coupon->applies_to === 'all_products') {
+        // If applies to all, entire subtotal is eligible
+        if ($coupon->applies_to === 'all') {
             return $subtotal;
         }
 

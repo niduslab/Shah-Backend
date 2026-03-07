@@ -39,29 +39,62 @@ class ShippingService implements ShippingServiceInterface
     public function calculateShippingCost(array $items, ?Address $address = null, float $subtotal = 0): array
     {
         $enrichedItems = $this->enrichItemsWithProductData($items);
-        $totalWeight = $this->calculateTotalWeight($enrichedItems);
-        $availableMethods = $this->getAvailableMethods($enrichedItems, $address);
+        
+        // Separate items by shipping requirements
+        $shippingGroups = $this->groupItemsByShipping($enrichedItems);
+        
+        // If all items don't require shipping
+        if (empty($shippingGroups['requires_shipping'])) {
+            return [];
+        }
+        
+        // Calculate custom shipping costs
+        $customShippingCost = $this->calculateCustomShippingCost($shippingGroups['custom_shipping']);
+        
+        // If all items have custom shipping, return only custom cost
+        if (empty($shippingGroups['default_shipping'])) {
+            return [
+                'custom' => [
+                    'code' => 'custom',
+                    'name' => 'Custom Shipping',
+                    'description' => 'Product-specific shipping rates',
+                    'cost' => round($customShippingCost, 2),
+                    'delivery_time' => null,
+                    'free_shipping_min_order' => 0,
+                    'is_free' => $customShippingCost == 0,
+                ],
+            ];
+        }
+        
+        // Calculate standard shipping for default items
+        $totalWeight = $this->calculateTotalWeight($shippingGroups['default_shipping']);
+        $availableMethods = $this->getAvailableMethods($shippingGroups['default_shipping'], $address);
         $costs = [];
 
         foreach ($availableMethods as $method) {
-            $rate = $this->getApplicableRate($method['code'], $address, $enrichedItems);
+            $rate = $this->getApplicableRate($method['code'], $address, $shippingGroups['default_shipping']);
             
             if ($rate) {
                 // Check free shipping
                 if ($rate->free_shipping_min_order > 0 && $subtotal >= $rate->free_shipping_min_order) {
                     $cost = 0;
                 } else {
-                    $cost = $this->calculateCostFromRate($rate, $totalWeight, $enrichedItems, $address);
+                    $cost = $this->calculateCostFromRate($rate, $totalWeight, $shippingGroups['default_shipping'], $address);
                 }
+
+                // Add custom shipping cost to total
+                $totalCost = $cost + $customShippingCost;
 
                 $costs[$method['code']] = [
                     'code' => $method['code'],
                     'name' => $method['name'],
                     'description' => $method['description'],
-                    'cost' => round($cost, 2),
+                    'cost' => round($totalCost, 2),
+                    'base_shipping_cost' => round($cost, 2),
+                    'custom_shipping_cost' => round($customShippingCost, 2),
                     'delivery_time' => $rate->delivery_time,
                     'free_shipping_min_order' => $rate->free_shipping_min_order,
-                    'is_free' => $cost == 0,
+                    'is_free' => $totalCost == 0,
                 ];
             }
         }
@@ -223,6 +256,19 @@ class ShippingService implements ShippingServiceInterface
             $weight = $variation->weight ?? $product->weight ?? 0;
             $weightUnit = $variation->weight_unit ?? $product->weight_unit ?? 'kg';
 
+            // Determine shipping configuration
+            $shippingType = 'default';
+            $shippingCost = null;
+            $requiresShipping = $product->requires_shipping ?? true;
+
+            if ($variation && $variation->shipping_type && $variation->shipping_type !== 'inherit') {
+                $shippingType = $variation->shipping_type;
+                $shippingCost = $variation->shipping_cost;
+            } elseif ($product->shipping_type && $product->shipping_type !== 'default') {
+                $shippingType = $product->shipping_type;
+                $shippingCost = $product->shipping_cost;
+            }
+
             return array_merge($item, [
                 'weight' => $weight,
                 'weight_unit' => $weightUnit,
@@ -230,6 +276,10 @@ class ShippingService implements ShippingServiceInterface
                 'width' => $product->width ?? 0,
                 'height' => $product->height ?? 0,
                 'shipping_class_id' => $product->shipping_class_id,
+                'shipping_type' => $shippingType,
+                'shipping_cost' => $shippingCost,
+                'requires_shipping' => $requiresShipping,
+                'separate_shipping' => $product->separate_shipping ?? false,
                 'quantity' => $quantity,
             ]);
         })->toArray();
@@ -437,21 +487,105 @@ class ShippingService implements ShippingServiceInterface
     public function getShippingCostForMethod(string $method, array $items, ?Address $address = null, float $subtotal = 0): float
     {
         $enrichedItems = $this->enrichItemsWithProductData($items);
-        $totalWeight = $this->calculateTotalWeight($enrichedItems);
         
-        $rate = $this->getApplicableRate($method, $address, $enrichedItems);
+        // Separate items by shipping requirements
+        $shippingGroups = $this->groupItemsByShipping($enrichedItems);
+        
+        // Calculate custom shipping costs
+        $customShippingCost = $this->calculateCustomShippingCost($shippingGroups['custom_shipping']);
+        
+        // If no default shipping items, return only custom cost
+        if (empty($shippingGroups['default_shipping'])) {
+            return $customShippingCost;
+        }
+        
+        $totalWeight = $this->calculateTotalWeight($shippingGroups['default_shipping']);
+        
+        $rate = $this->getApplicableRate($method, $address, $shippingGroups['default_shipping']);
         
         if (!$rate) {
             Log::warning("No shipping rate found for method: {$method}");
-            return 0;
+            return $customShippingCost;
         }
 
         // Check free shipping
         if ($rate->free_shipping_min_order > 0 && $subtotal >= $rate->free_shipping_min_order) {
-            return 0;
+            return $customShippingCost;
         }
 
-        return $this->calculateCostFromRate($rate, $totalWeight, $enrichedItems, $address);
+        $standardCost = $this->calculateCostFromRate($rate, $totalWeight, $shippingGroups['default_shipping'], $address);
+        
+        return $standardCost + $customShippingCost;
+    }
+
+    /**
+     * Group items by shipping type.
+     * 
+     * @param array $items
+     * @return array
+     */
+    protected function groupItemsByShipping(array $items): array
+    {
+        $groups = [
+            'requires_shipping' => [],
+            'no_shipping' => [],
+            'custom_shipping' => [],
+            'default_shipping' => [],
+        ];
+
+        foreach ($items as $item) {
+            // Items that don't require shipping
+            if (!($item['requires_shipping'] ?? true)) {
+                $groups['no_shipping'][] = $item;
+                continue;
+            }
+
+            $groups['requires_shipping'][] = $item;
+
+            // Items with custom shipping (free, fixed, per_item)
+            if (in_array($item['shipping_type'] ?? 'default', ['free', 'fixed', 'per_item'])) {
+                $groups['custom_shipping'][] = $item;
+            } else {
+                // Items using default shipping calculation
+                $groups['default_shipping'][] = $item;
+            }
+        }
+
+        return $groups;
+    }
+
+    /**
+     * Calculate total custom shipping cost.
+     * 
+     * @param array $items
+     * @return float
+     */
+    protected function calculateCustomShippingCost(array $items): float
+    {
+        $totalCost = 0;
+
+        foreach ($items as $item) {
+            $shippingType = $item['shipping_type'] ?? 'default';
+            $shippingCost = $item['shipping_cost'] ?? 0;
+            $quantity = $item['quantity'] ?? 1;
+            $separateShipping = $item['separate_shipping'] ?? false;
+
+            $itemCost = match ($shippingType) {
+                'free' => 0,
+                'fixed' => $shippingCost,
+                'per_item' => $shippingCost * $quantity,
+                default => 0,
+            };
+
+            // If item ships separately, multiply by quantity
+            if ($separateShipping && $shippingType === 'fixed') {
+                $itemCost *= $quantity;
+            }
+
+            $totalCost += $itemCost;
+        }
+
+        return $totalCost;
     }
 
     /**

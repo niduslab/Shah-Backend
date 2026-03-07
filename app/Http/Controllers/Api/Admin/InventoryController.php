@@ -93,11 +93,16 @@ class InventoryController extends Controller
             'notes' => 'nullable|string|max:500',
         ]);
 
+        $variation = null;
+        if (!empty($validated['variation_id'])) {
+            $variation = ProductVariation::find($validated['variation_id']);
+        }
+
         $this->inventoryService->adjustStock(
-            $productId,
-            $validated['variation_id'] ?? null,
+            $product,
             $validated['quantity'],
             $validated['reason'],
+            $variation,
             $validated['notes'] ?? null
         );
 
@@ -184,11 +189,18 @@ class InventoryController extends Controller
         ]);
 
         foreach ($validated['adjustments'] as $adjustment) {
+            $product = Product::find($adjustment['product_id']);
+            
+            $variation = null;
+            if (!empty($adjustment['variation_id'])) {
+                $variation = ProductVariation::find($adjustment['variation_id']);
+            }
+
             $this->inventoryService->adjustStock(
-                $adjustment['product_id'],
-                $adjustment['variation_id'] ?? null,
+                $product,
                 $adjustment['quantity'],
                 $validated['reason'],
+                $variation,
                 $validated['notes'] ?? null
             );
         }

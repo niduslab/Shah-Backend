@@ -16,7 +16,7 @@ interface ShippingServiceInterface
     /**
      * Get available shipping methods for an address.
      */
-    public function getAvailableMethods(Address $address): array;
+    public function getAvailableMethods(array $items = [], ?Address $address = null): array;
 
     /**
      * Assign tracking number to an order.

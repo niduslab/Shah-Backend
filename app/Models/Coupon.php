@@ -163,6 +163,46 @@ class Coupon extends Model
     }
 
     /**
+     * Check if coupon applies to products.
+     */
+    public function appliesToProducts(): bool
+    {
+        return $this->applies_to === 'all_products' || $this->applies_to === 'specific_products';
+    }
+
+    /**
+     * Check if coupon applies to brands.
+     */
+    public function appliesToBrands(): bool
+    {
+        return $this->applies_to === 'all_products' || $this->applies_to === 'specific_brands';
+    }
+
+    /**
+     * Check if coupon applies to categories.
+     */
+    public function appliesToCategories(): bool
+    {
+        return $this->applies_to === 'all_products' || $this->applies_to === 'specific_categories';
+    }
+
+    /**
+     * Check if coupon applies to all products.
+     */
+    public function appliesToAll(): bool
+    {
+        return $this->applies_to === 'all_products';
+    }
+
+    /**
+     * Get applies_to as array.
+     */
+    public function getAppliesToTypesAttribute(): array
+    {
+        return [$this->applies_to];
+    }
+
+    /**
      * Scope for active coupons.
      */
     public function scopeActive($query)

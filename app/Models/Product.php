@@ -30,6 +30,11 @@ class Product extends Model
         'length',
         'width',
         'height',
+        'shipping_type',
+        'shipping_cost',
+        'requires_shipping',
+        'separate_shipping',
+        'shipping_notes',
         'is_featured',
         'is_trending',
         'status',
@@ -46,10 +51,13 @@ class Product extends Model
         'length' => 'decimal:2',
         'width' => 'decimal:2',
         'height' => 'decimal:2',
+        'shipping_cost' => 'decimal:2',
         'quantity' => 'integer',
         'low_stock_threshold' => 'integer',
         'is_featured' => 'boolean',
         'is_trending' => 'boolean',
+        'requires_shipping' => 'boolean',
+        'separate_shipping' => 'boolean',
         'is_preorder' => 'boolean',
         'preorder_release_date' => 'datetime',
         'preorder_limit' => 'integer',
@@ -392,4 +400,52 @@ class Product extends Model
                     ->orWhere('preorder_release_date', '>', now());
             });
     }
+    /**
+     * Check if product requires shipping.
+     */
+    public function requiresShipping(): bool
+    {
+        return $this->requires_shipping;
+    }
+
+    /**
+     * Check if product has free shipping.
+     */
+    public function hasFreeShipping(): bool
+    {
+        return $this->shipping_type === 'free';
+    }
+
+    /**
+     * Check if product has custom shipping cost.
+     */
+    public function hasCustomShipping(): bool
+    {
+        return in_array($this->shipping_type, ['fixed', 'per_item']);
+    }
+
+    /**
+     * Get shipping cost for this product.
+     *
+     * @param int $quantity
+     * @return float|null Returns null if using default shipping
+     */
+    public function getCustomShippingCost(int $quantity = 1): ?float
+    {
+        return match ($this->shipping_type) {
+            'free' => 0,
+            'fixed' => $this->shipping_cost ?? 0,
+            'per_item' => ($this->shipping_cost ?? 0) * $quantity,
+            default => null, // Use default shipping calculation
+        };
+    }
+
+    /**
+     * Check if product ships separately (can't combine with other items).
+     */
+    public function shipsSeparately(): bool
+    {
+        return $this->separate_shipping;
+    }
+
 }

@@ -18,7 +18,7 @@ class PromotionSeeder extends Seeder
             'promotion_type' => 'percentage',
             'discount_value' => 10.00,
             'applies_to' => 'all_products',
-            'apply_level' => 'order',
+            'apply_level' => 'cart',
             'min_purchase_amount' => 2000.00,
             'max_discount_amount' => 2000.00,
             'starts_at' => now(),
@@ -77,7 +77,7 @@ class PromotionSeeder extends Seeder
             'promotion_type' => 'free_delivery',
             'discount_value' => 0,
             'applies_to' => 'all_products',
-            'apply_level' => 'order',
+            'apply_level' => 'cart',
             'min_purchase_amount' => 3000.00,
             'starts_at' => now()->startOfWeek()->addDays(5), // Saturday
             'ends_at' => now()->startOfWeek()->addDays(7), // End of Sunday

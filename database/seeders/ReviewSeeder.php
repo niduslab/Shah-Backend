@@ -75,11 +75,16 @@ class ReviewSeeder extends Seeder
                 
                 // Find a delivered order for this customer (if exists)
                 $order = $deliveredOrders->where('user_id', $customer->id)->first();
+                
+                // Skip if no order found for this customer
+                if (!$order) {
+                    continue;
+                }
 
                 $review = Review::create([
                     'user_id' => $customer->id,
                     'product_id' => $product->id,
-                    'order_id' => $order?->id,
+                    'order_id' => $order->id,
                     'rating' => $rating,
                     'title' => $reviewTitles[$rating][array_rand($reviewTitles[$rating])],
                     'comment' => $reviewComments[$rating][array_rand($reviewComments[$rating])],

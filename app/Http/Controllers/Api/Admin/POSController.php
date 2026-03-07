@@ -39,14 +39,25 @@ class POSController extends Controller
 
         // Validate stock availability
         foreach ($validated['items'] as $item) {
+            $product = Product::find($item['product_id']);
+            if (!$product) {
+                return response()->json([
+                    'success' => false,
+                    'message' => "Product not found.",
+                ], 404);
+            }
+
+            $variation = isset($item['variation_id']) 
+                ? ProductVariation::find($item['variation_id']) 
+                : null;
+
             $available = $this->inventoryService->checkAvailability(
-                $item['product_id'],
-                $item['variation_id'] ?? null,
-                $item['quantity']
+                $product,
+                $item['quantity'],
+                $variation
             );
 
             if (!$available) {
-                $product = Product::find($item['product_id']);
                 return response()->json([
                     'success' => false,
                     'message' => "Insufficient stock for product: {$product->name}",

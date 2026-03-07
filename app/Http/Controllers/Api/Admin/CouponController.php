@@ -50,11 +50,11 @@ class CouponController extends Controller
     {
         $validated = $request->validate([
             'code' => 'nullable|string|max:50|unique:coupons,code',
+            'name' => 'required|string|max:255',
             'description' => 'nullable|string',
-            'discount_type' => 'required|in:percentage,fixed,free_shipping',
+            'discount_type' => 'required|in:percentage,fixed_amount,free_shipping',
             'discount_value' => 'required_unless:discount_type,free_shipping|numeric|min:0',
-            'applies_to' => 'required|in:all,products,brands,categories',
-            'min_purchase_amount' => 'nullable|numeric|min:0',
+            'min_order_amount' => 'nullable|numeric|min:0',
             'max_discount_amount' => 'nullable|numeric|min:0',
             'usage_limit' => 'nullable|integer|min:1',
             'once_per_customer' => 'nullable|boolean',
@@ -69,15 +69,23 @@ class CouponController extends Controller
             'category_ids.*' => 'exists:categories,id',
         ]);
 
+        // Determine applies_to based on what IDs are provided
+        $appliesTo = $this->determineAppliesTo(
+            !empty($validated['product_ids']),
+            !empty($validated['brand_ids']),
+            !empty($validated['category_ids'])
+        );
+
         $code = $validated['code'] ?? strtoupper(Str::random(8));
 
         $coupon = Coupon::create([
             'code' => $code,
+            'name' => $validated['name'],
             'description' => $validated['description'] ?? null,
             'discount_type' => $validated['discount_type'],
             'discount_value' => $validated['discount_value'] ?? 0,
-            'applies_to' => $validated['applies_to'],
-            'min_purchase_amount' => $validated['min_purchase_amount'] ?? null,
+            'applies_to' => $appliesTo,
+            'min_order_amount' => $validated['min_order_amount'] ?? 0,
             'max_discount_amount' => $validated['max_discount_amount'] ?? null,
             'usage_limit' => $validated['usage_limit'] ?? null,
             'once_per_customer' => $validated['once_per_customer'] ?? true,
@@ -101,6 +109,28 @@ class CouponController extends Controller
             'message' => 'Coupon created successfully.',
             'data' => $coupon->load(['products', 'brands', 'categories']),
         ], 201);
+    }
+
+    /**
+     * Determine applies_to value based on provided IDs.
+     * Returns values matching the database enum: all_products, specific_products, specific_brands, specific_categories
+     */
+    private function determineAppliesTo(bool $hasProducts, bool $hasBrands, bool $hasCategories): string
+    {
+        // Priority: products > brands > categories
+        // If multiple types are provided, use the most specific one
+        if ($hasProducts) {
+            return 'specific_products';
+        }
+        if ($hasBrands) {
+            return 'specific_brands';
+        }
+        if ($hasCategories) {
+            return 'specific_categories';
+        }
+
+        // If no specific items selected, applies to all
+        return 'all_products';
     }
 
     /**
@@ -141,11 +171,11 @@ class CouponController extends Controller
 
         $validated = $request->validate([
             'code' => 'sometimes|string|max:50|unique:coupons,code,' . $id,
+            'name' => 'sometimes|string|max:255',
             'description' => 'nullable|string',
-            'discount_type' => 'sometimes|in:percentage,fixed,free_shipping',
+            'discount_type' => 'sometimes|in:percentage,fixed_amount,free_shipping',
             'discount_value' => 'nullable|numeric|min:0',
-            'applies_to' => 'sometimes|in:all,products,brands,categories',
-            'min_purchase_amount' => 'nullable|numeric|min:0',
+            'min_order_amount' => 'nullable|numeric|min:0',
             'max_discount_amount' => 'nullable|numeric|min:0',
             'usage_limit' => 'nullable|integer|min:1',
             'once_per_customer' => 'nullable|boolean',
@@ -156,6 +186,15 @@ class CouponController extends Controller
             'brand_ids' => 'nullable|array',
             'category_ids' => 'nullable|array',
         ]);
+
+        // Update applies_to if any IDs are being updated
+        if (isset($validated['product_ids']) || isset($validated['brand_ids']) || isset($validated['category_ids'])) {
+            $hasProducts = isset($validated['product_ids']) ? !empty($validated['product_ids']) : $coupon->products()->exists();
+            $hasBrands = isset($validated['brand_ids']) ? !empty($validated['brand_ids']) : $coupon->brands()->exists();
+            $hasCategories = isset($validated['category_ids']) ? !empty($validated['category_ids']) : $coupon->categories()->exists();
+            
+            $validated['applies_to'] = $this->determineAppliesTo($hasProducts, $hasBrands, $hasCategories);
+        }
 
         $coupon->update($validated);
 

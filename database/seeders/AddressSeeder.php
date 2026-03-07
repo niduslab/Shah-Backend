@@ -19,7 +19,7 @@ class AddressSeeder extends Seeder
                 'city' => 'Dhaka',
                 'state' => 'Dhaka Division',
                 'zip_code' => '1213',
-                'address_type' => 'home',
+                'address_type' => 'user_address',
             ],
             [
                 'address_line_1' => 'Flat 3B, Building 78',
@@ -27,7 +27,7 @@ class AddressSeeder extends Seeder
                 'city' => 'Dhaka',
                 'state' => 'Dhaka Division',
                 'zip_code' => '1212',
-                'address_type' => 'home',
+                'address_type' => 'user_address',
             ],
             [
                 'address_line_1' => 'House 23, Block C',
@@ -35,7 +35,7 @@ class AddressSeeder extends Seeder
                 'city' => 'Dhaka',
                 'state' => 'Dhaka Division',
                 'zip_code' => '1229',
-                'address_type' => 'home',
+                'address_type' => 'user_address',
             ],
             [
                 'address_line_1' => 'Office Tower, Floor 5',
@@ -43,7 +43,7 @@ class AddressSeeder extends Seeder
                 'city' => 'Dhaka',
                 'state' => 'Dhaka Division',
                 'zip_code' => '1000',
-                'address_type' => 'office',
+                'address_type' => 'user_address',
             ],
             [
                 'address_line_1' => 'House 12, Road 5',
@@ -51,7 +51,7 @@ class AddressSeeder extends Seeder
                 'city' => 'Dhaka',
                 'state' => 'Dhaka Division',
                 'zip_code' => '1205',
-                'address_type' => 'home',
+                'address_type' => 'user_address',
             ],
             [
                 'address_line_1' => 'Flat 2A, Green Tower',
@@ -59,7 +59,7 @@ class AddressSeeder extends Seeder
                 'city' => 'Dhaka',
                 'state' => 'Dhaka Division',
                 'zip_code' => '1230',
-                'address_type' => 'home',
+                'address_type' => 'user_address',
             ],
             [
                 'address_line_1' => 'House 67, Lane 3',
@@ -67,7 +67,7 @@ class AddressSeeder extends Seeder
                 'city' => 'Chittagong',
                 'state' => 'Chittagong Division',
                 'zip_code' => '4000',
-                'address_type' => 'home',
+                'address_type' => 'user_address',
             ],
             [
                 'address_line_1' => 'Building 34, Road 2',
@@ -75,7 +75,7 @@ class AddressSeeder extends Seeder
                 'city' => 'Chittagong',
                 'state' => 'Chittagong Division',
                 'zip_code' => '4100',
-                'address_type' => 'office',
+                'address_type' => 'user_address',
             ],
             [
                 'address_line_1' => 'House 89, Block B',
@@ -83,7 +83,7 @@ class AddressSeeder extends Seeder
                 'city' => 'Sylhet',
                 'state' => 'Sylhet Division',
                 'zip_code' => '3100',
-                'address_type' => 'home',
+                'address_type' => 'user_address',
             ],
             [
                 'address_line_1' => 'Flat 5C, City Center',
@@ -91,7 +91,7 @@ class AddressSeeder extends Seeder
                 'city' => 'Rajshahi',
                 'state' => 'Rajshahi Division',
                 'zip_code' => '6000',
-                'address_type' => 'home',
+                'address_type' => 'user_address',
             ],
         ];
 
@@ -107,7 +107,7 @@ class AddressSeeder extends Seeder
                 $secondAddress = $addresses[($index + 3) % count($addresses)];
                 $secondAddress['user_id'] = $customer->id;
                 $secondAddress['contact_no'] = $customer->phone;
-                $secondAddress['address_type'] = 'office';
+                $secondAddress['address_type'] = 'user_address';
                 Address::create($secondAddress);
             }
         }

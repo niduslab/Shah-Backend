@@ -16,7 +16,15 @@ class Payment extends Model
         'currency',
         'transaction_id',
         'payment_method',
-        'payment_status',
+        'status',
+        'gateway_response',
+        'paid_at',
+    ];
+
+    protected $casts = [
+        'amount' => 'decimal:2',
+        'gateway_response' => 'array',
+        'paid_at' => 'datetime',
     ];
 
     public function user()

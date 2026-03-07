@@ -4,6 +4,9 @@ namespace App\Services;
 
 use App\Models\Category;
 use App\Models\Product;
+use App\Models\ProductVariation;
+use App\Models\Variation;
+use App\Models\VariationOption;
 use App\Services\Contracts\CatalogServiceInterface;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Collection;
@@ -143,7 +146,7 @@ class CatalogService implements CatalogServiceInterface
             'model',
             'shippingClass',
             'images',
-            'variations.variationValues',
+            'variations.variationValues.variationOption.variation',
             'reviews' => fn($q) => $q->approved()->latest()->limit(10),
         ])->find($productId);
     }
@@ -457,14 +460,28 @@ class CatalogService implements CatalogServiceInterface
                     }
 
                     // Update variation values if provided
-                    if (isset($variationData['variation_values'])) {
-                        $variation->variationValues()->delete();
-                        foreach ($variationData['variation_values'] as $optionId) {
-                            $variation->variationValues()->create([
-                                'variation_option_id' => $optionId,
-                            ]);
-                        }
+                    $this->syncVariationValues($variation, $variationData);
+
+                    $existingVariationIds[] = $variation->id;
+                } else {
+                    // Variation ID doesn't belong to this product, treat as new
+                    $sku = $variationData['sku'] ?? $this->generateVariationSku($product, $index + 1);
+                    $isDefault = $variationData['is_default'] ?? ($index === 0 && $product->variations()->count() === 0);
+
+                    $variation = $product->variations()->create([
+                        'sku' => $sku,
+                        'price' => $variationData['price'] ?? null,
+                        'quantity' => $variationData['quantity'] ?? 0,
+                        'is_default' => $isDefault,
+                    ]);
+
+                    // If this is set as default, unset other defaults
+                    if ($isDefault) {
+                        $product->variations()->where('id', '!=', $variation->id)->update(['is_default' => false]);
                     }
+
+                    // Create variation values
+                    $this->syncVariationValues($variation, $variationData);
 
                     $existingVariationIds[] = $variation->id;
                 }
@@ -485,17 +502,96 @@ class CatalogService implements CatalogServiceInterface
                     $product->variations()->where('id', '!=', $variation->id)->update(['is_default' => false]);
                 }
 
-                // Create variation values if provided
-                if (!empty($variationData['variation_values'])) {
-                    foreach ($variationData['variation_values'] as $optionId) {
-                        $variation->variationValues()->create([
-                            'variation_option_id' => $optionId,
-                        ]);
-                    }
-                }
+                // Create variation values
+                $this->syncVariationValues($variation, $variationData);
 
                 $existingVariationIds[] = $variation->id;
             }
+        }
+    }
+
+    /**
+     * Sync variation values from either variation_values array or attributes object.
+     */
+    protected function syncVariationValues(ProductVariation $variation, array $variationData): void
+    {
+        // Delete existing variation values
+        $variation->variationValues()->delete();
+
+        // Handle variation_values format (array of option IDs)
+        if (!empty($variationData['variation_values'])) {
+            foreach ($variationData['variation_values'] as $optionId) {
+                $variation->variationValues()->create([
+                    'variation_option_id' => $optionId,
+                ]);
+            }
+            return;
+        }
+
+        // Handle attributes format (key-value pairs like color: "Red", size: "XL")
+        if (!empty($variationData['attributes'])) {
+            \Log::info('Processing variation attributes', [
+                'variation_id' => $variation->id,
+                'attributes' => $variationData['attributes']
+            ]);
+
+            foreach ($variationData['attributes'] as $attributeName => $attributeValue) {
+                // Skip empty values
+                if (empty($attributeValue)) {
+                    \Log::warning('Skipping empty attribute value', ['attribute' => $attributeName]);
+                    continue;
+                }
+
+                \Log::info('Processing attribute', [
+                    'name' => $attributeName,
+                    'value' => $attributeValue
+                ]);
+
+                // Find or create the variation (attribute type like "Color", "Size")
+                $variationModel = Variation::whereRaw('LOWER(name) = ?', [strtolower($attributeName)])->first();
+                
+                if (!$variationModel) {
+                    // Create the variation if it doesn't exist
+                    $variationModel = Variation::create([
+                        'name' => ucfirst($attributeName),
+                        'is_active' => true,
+                    ]);
+                    \Log::info('Created new variation', ['id' => $variationModel->id, 'name' => $variationModel->name]);
+                }
+
+                // Find or create the option by value
+                $option = VariationOption::where('variation_id', $variationModel->id)
+                    ->whereRaw('LOWER(value) = ?', [strtolower($attributeValue)])
+                    ->first();
+
+                if (!$option) {
+                    // Create the option if it doesn't exist
+                    $maxSortOrder = VariationOption::where('variation_id', $variationModel->id)->max('sort_order') ?? 0;
+                    $option = VariationOption::create([
+                        'variation_id' => $variationModel->id,
+                        'value' => $attributeValue,
+                        'label' => $attributeValue,
+                        'is_active' => true,
+                        'sort_order' => $maxSortOrder + 1,
+                    ]);
+                    \Log::info('Created new option', ['id' => $option->id, 'value' => $option->value]);
+                }
+
+                // Create the variation value link
+                $variationValue = $variation->variationValues()->create([
+                    'variation_option_id' => $option->id,
+                ]);
+                \Log::info('Created variation value link', [
+                    'variation_value_id' => $variationValue->id,
+                    'product_variation_id' => $variation->id,
+                    'option_id' => $option->id
+                ]);
+            }
+        } else {
+            \Log::warning('No variation_values or attributes found', [
+                'variation_id' => $variation->id,
+                'data_keys' => array_keys($variationData)
+            ]);
         }
     }
 
