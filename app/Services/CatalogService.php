@@ -54,12 +54,22 @@ class CatalogService implements CatalogServiceInterface
                 'length' => $data['length'] ?? null,
                 'width' => $data['width'] ?? null,
                 'height' => $data['height'] ?? null,
+                'shipping_type' => $data['shipping_type'] ?? 'default',
+                'shipping_cost' => $data['shipping_cost'] ?? null,
+                'requires_shipping' => $data['requires_shipping'] ?? true,
+                'separate_shipping' => $data['separate_shipping'] ?? false,
+                'shipping_notes' => $data['shipping_notes'] ?? null,
                 'is_featured' => $data['is_featured'] ?? false,
                 'is_trending' => $data['is_trending'] ?? false,
                 'status' => $data['status'] ?? 'draft',
                 'meta_title' => $data['meta_title'] ?? null,
                 'meta_description' => $data['meta_description'] ?? null,
                 'meta_keywords' => $data['meta_keywords'] ?? null,
+                'is_preorder' => $data['is_preorder'] ?? false,
+                'preorder_release_date' => $data['preorder_release_date'] ?? null,
+                'preorder_limit' => $data['preorder_limit'] ?? null,
+                'preorder_deposit_amount' => $data['preorder_deposit_amount'] ?? null,
+                'preorder_deposit_type' => $data['preorder_deposit_type'] ?? null,
             ]);
 
             // Handle images if provided
@@ -110,12 +120,22 @@ class CatalogService implements CatalogServiceInterface
                 'length' => $data['length'] ?? $product->length,
                 'width' => $data['width'] ?? $product->width,
                 'height' => $data['height'] ?? $product->height,
+                'shipping_type' => $data['shipping_type'] ?? $product->shipping_type,
+                'shipping_cost' => $data['shipping_cost'] ?? $product->shipping_cost,
+                'requires_shipping' => $data['requires_shipping'] ?? $product->requires_shipping,
+                'separate_shipping' => $data['separate_shipping'] ?? $product->separate_shipping,
+                'shipping_notes' => $data['shipping_notes'] ?? $product->shipping_notes,
                 'is_featured' => $data['is_featured'] ?? $product->is_featured,
                 'is_trending' => $data['is_trending'] ?? $product->is_trending,
                 'status' => $data['status'] ?? $product->status,
                 'meta_title' => $data['meta_title'] ?? $product->meta_title,
                 'meta_description' => $data['meta_description'] ?? $product->meta_description,
                 'meta_keywords' => $data['meta_keywords'] ?? $product->meta_keywords,
+                'is_preorder' => $data['is_preorder'] ?? $product->is_preorder,
+                'preorder_release_date' => $data['preorder_release_date'] ?? $product->preorder_release_date,
+                'preorder_limit' => $data['preorder_limit'] ?? $product->preorder_limit,
+                'preorder_deposit_amount' => $data['preorder_deposit_amount'] ?? $product->preorder_deposit_amount,
+                'preorder_deposit_type' => $data['preorder_deposit_type'] ?? $product->preorder_deposit_type,
             ], fn($value) => $value !== null));
 
             // Handle images if provided
@@ -446,6 +466,12 @@ class CatalogService implements CatalogServiceInterface
                     if (isset($variationData['quantity'])) {
                         $updateData['quantity'] = $variationData['quantity'];
                     }
+                    if (isset($variationData['shipping_type'])) {
+                        $updateData['shipping_type'] = $variationData['shipping_type'];
+                    }
+                    if (isset($variationData['shipping_cost'])) {
+                        $updateData['shipping_cost'] = $variationData['shipping_cost'];
+                    }
                     if (isset($variationData['is_default'])) {
                         $updateData['is_default'] = $variationData['is_default'];
                         
@@ -473,6 +499,8 @@ class CatalogService implements CatalogServiceInterface
                         'price' => $variationData['price'] ?? null,
                         'quantity' => $variationData['quantity'] ?? 0,
                         'is_default' => $isDefault,
+                        'shipping_type' => $variationData['shipping_type'] ?? 'inherit',
+                        'shipping_cost' => $variationData['shipping_cost'] ?? null,
                     ]);
 
                     // If this is set as default, unset other defaults
@@ -495,6 +523,8 @@ class CatalogService implements CatalogServiceInterface
                     'price' => $variationData['price'] ?? null,
                     'quantity' => $variationData['quantity'] ?? 0,
                     'is_default' => $isDefault,
+                    'shipping_type' => $variationData['shipping_type'] ?? 'inherit',
+                    'shipping_cost' => $variationData['shipping_cost'] ?? null,
                 ]);
 
                 // If this is set as default, unset other defaults

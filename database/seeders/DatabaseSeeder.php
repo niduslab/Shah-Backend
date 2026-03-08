@@ -35,6 +35,7 @@ class DatabaseSeeder extends Seeder
             BannerSeeder::class,
             StorePolicySeeder::class,
             CmsPageSeeder::class,
+            PageTemplateSeeder::class,
             
             // Orders & Reviews (sample data)
             AddressSeeder::class,

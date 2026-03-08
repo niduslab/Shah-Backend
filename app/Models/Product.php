@@ -41,6 +41,11 @@ class Product extends Model
         'meta_title',
         'meta_description',
         'meta_keywords',
+        'is_preorder',
+        'preorder_release_date',
+        'preorder_limit',
+        'preorder_deposit_amount',
+        'preorder_deposit_type',
     ];
 
     protected $casts = [

@@ -49,7 +49,8 @@ Route::get('products/{productId}/reviews', [\App\Http\Controllers\Api\ReviewCont
 // Pages (Public)
 Route::get('policies', [\App\Http\Controllers\Api\PageController::class, 'allPolicies']);
 Route::get('policies/{type}', [\App\Http\Controllers\Api\PageController::class, 'policy']);
-Route::get('pages/{slug}', [\App\Http\Controllers\Api\PageController::class, 'page']);
+Route::get('pages/{slug}', [\App\Http\Controllers\Api\PageController::class, 'show']);
+Route::get('pages/type/{type}', [\App\Http\Controllers\Api\PageController::class, 'getByType']);
 Route::get('banners/{position?}', [\App\Http\Controllers\Api\PageController::class, 'banners']);
 
 // Order Tracking (Public)
@@ -295,4 +296,22 @@ Route::prefix('admin')->middleware(['auth:sanctum', 'admin'])->group(function ()
     Route::post('galleries/{id}/images', [\App\Http\Controllers\Api\Admin\GalleryController::class, 'addImage']);
     Route::put('galleries/{galleryId}/images/{imageId}', [\App\Http\Controllers\Api\Admin\GalleryController::class, 'updateImage']);
     Route::delete('galleries/{galleryId}/images/{imageId}', [\App\Http\Controllers\Api\Admin\GalleryController::class, 'deleteImage']);
+
+    // Dynamic Pages Management
+    Route::get('page-templates', [\App\Http\Controllers\Api\Admin\PageController::class, 'getTemplates']);
+    Route::get('page-templates/category/{category}', [\App\Http\Controllers\Api\Admin\PageController::class, 'getTemplatesByCategory']);
+    Route::get('page-templates/page-type/{pageType}', [\App\Http\Controllers\Api\Admin\PageController::class, 'getTemplatesByPageType']);
+    Route::get('page-templates/{templateType}/schema', [\App\Http\Controllers\Api\Admin\PageController::class, 'getTemplateSchema']);
+    
+    Route::apiResource('pages', \App\Http\Controllers\Api\Admin\PageController::class);
+    Route::post('pages/{page}/duplicate', [\App\Http\Controllers\Api\Admin\PageController::class, 'duplicate']);
+    Route::get('pages/{page}/sections', [\App\Http\Controllers\Api\Admin\PageController::class, 'getSections']);
+    Route::post('pages/{page}/sections', [\App\Http\Controllers\Api\Admin\PageController::class, 'addSection']);
+    Route::get('pages/{page}/sections/{section}', [\App\Http\Controllers\Api\Admin\PageController::class, 'getSection']);
+    Route::put('pages/{page}/sections/{section}', [\App\Http\Controllers\Api\Admin\PageController::class, 'updateSection']);
+    Route::delete('pages/{page}/sections/{section}', [\App\Http\Controllers\Api\Admin\PageController::class, 'deleteSection']);
+    Route::post('pages/{page}/sections/reorder', [\App\Http\Controllers\Api\Admin\PageController::class, 'reorderSections']);
+
+    // Media Library
+    Route::apiResource('media', \App\Http\Controllers\Api\Admin\MediaLibraryController::class);
 });

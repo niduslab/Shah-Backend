@@ -26,6 +26,10 @@ class ProductVariation extends Model
         'shipping_cost' => 'decimal:2',
     ];
 
+    protected $appends = [
+        'attributes',
+    ];
+
     /**
      * Get the product.
      */
@@ -124,6 +128,25 @@ class ProductVariation extends Model
             ->pluck('variationOption.value')
             ->implode(' / ');
     }
+
+    /**
+     * Get attributes as key-value pairs (e.g., ["color" => "Red", "size" => "XL"]).
+     */
+    public function getAttributesAttribute(): array
+    {
+        $attributes = [];
+
+        foreach ($this->variationValues as $variationValue) {
+            if ($variationValue->variationOption && $variationValue->variationOption->variation) {
+                $attributeName = strtolower($variationValue->variationOption->variation->name);
+                $attributeValue = $variationValue->variationOption->value;
+                $attributes[$attributeName] = $attributeValue;
+            }
+        }
+
+        return $attributes;
+    }
+
     /**
      * Get shipping cost for this variation.
      *
