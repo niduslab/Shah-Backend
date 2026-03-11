@@ -347,4 +347,68 @@ class UserService implements UserServiceInterface
     {
         return $user->tokens()->delete() > 0;
     }
+
+    /**
+     * Find or create user from OAuth provider.
+     * 
+     * @param array $data OAuth user data (provider, provider_id, email, name, avatar)
+     * @return User
+     */
+    public function findOrCreateFromOAuth(array $data): User
+    {
+        $user = $this->findByProviderId($data['provider'], $data['provider_id']);
+
+        if ($user) {
+            // Update avatar if changed
+            if (isset($data['avatar']) && $user->avatar !== $data['avatar']) {
+                $user->update(['avatar' => $data['avatar']]);
+            }
+            return $user;
+        }
+
+        // Check if user exists with this email
+        $user = $this->findByEmail($data['email']);
+
+        if ($user) {
+            // Link OAuth account to existing user
+            $user->update([
+                'google_id' => $data['provider'] === 'google' ? $data['provider_id'] : $user->google_id,
+                'provider' => $data['provider'],
+                'avatar' => $data['avatar'] ?? $user->avatar,
+                'email_verified_at' => $user->email_verified_at ?? now(),
+            ]);
+            return $user;
+        }
+
+        // Create new user
+        $nameParts = explode(' ', $data['name'], 2);
+        return User::create([
+            'first_name' => $nameParts[0],
+            'last_name' => $nameParts[1] ?? '',
+            'email' => $data['email'],
+            'google_id' => $data['provider'] === 'google' ? $data['provider_id'] : null,
+            'provider' => $data['provider'],
+            'avatar' => $data['avatar'] ?? null,
+            'password' => Hash::make(Str::random(32)),
+            'user_type' => 'customer',
+            'status' => true,
+            'email_verified_at' => now(),
+        ]);
+    }
+
+    /**
+     * Find user by provider ID.
+     * 
+     * @param string $provider
+     * @param string $providerId
+     * @return User|null
+     */
+    public function findByProviderId(string $provider, string $providerId): ?User
+    {
+        if ($provider === 'google') {
+            return User::where('google_id', $providerId)->first();
+        }
+
+        return null;
+    }
 }

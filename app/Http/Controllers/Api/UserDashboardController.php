@@ -33,7 +33,7 @@ class UserDashboardController extends Controller
 
         // Recent orders
         $recentOrders = Order::where('user_id', $user->id)
-            ->with(['items.product'])
+            ->with(['items.product.images'])
             ->orderBy('created_at', 'desc')
             ->limit(5)
             ->get();

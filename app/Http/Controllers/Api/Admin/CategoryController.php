@@ -6,6 +6,8 @@ use App\Http\Controllers\Controller;
 use App\Models\Category;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 
 class CategoryController extends Controller
@@ -62,23 +64,51 @@ class CategoryController extends Controller
             'name' => 'required|string|max:255',
             'parent_id' => 'nullable|exists:categories,id',
             'description' => 'nullable|string',
-            'image' => 'nullable|string|max:255',
+            'image' => 'nullable|image|mimes:jpeg,png,webp|max:2048',
             'sort_order' => 'nullable|integer|min:0',
             'is_active' => 'nullable|boolean',
             'meta_title' => 'nullable|string|max:255',
             'meta_description' => 'nullable|string',
         ]);
 
-        // Generate slug
-        $validated['slug'] = $this->generateUniqueSlug($validated['name']);
+        $uploadedPath = null;
 
-        $category = Category::create($validated);
+        DB::beginTransaction();
 
-        return response()->json([
-            'success' => true,
-            'message' => 'Category created successfully.',
-            'data' => $category,
-        ], 201);
+        try {
+            if ($request->hasFile('image')) {
+                $uploadedPath = $request->file('image')->store('storage/categories', 'public');
+                $validated['image'] = $uploadedPath;
+            }
+
+            $validated['slug'] = $this->generateUniqueSlug($validated['name']);
+
+            $category = Category::create($validated);
+
+            DB::commit();
+
+            // Return full URL for image
+            $categoryData = $category->toArray();
+            if ($category->image) {
+                $categoryData['image'] = Storage::disk('public')->url($category->image);
+            }
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Category created successfully.',
+                'data' => $categoryData,
+            ], 201);
+
+        } catch (\Exception $e) {
+            DB::rollBack();
+
+            // Clean up uploaded file if DB transaction fails
+            if ($uploadedPath && Storage::disk('public')->exists($uploadedPath)) {
+                Storage::disk('public')->delete($uploadedPath);
+            }
+
+            throw $e;
+        }
     }
 
     /**
@@ -119,7 +149,7 @@ class CategoryController extends Controller
             'name' => 'sometimes|string|max:255',
             'parent_id' => 'nullable|exists:categories,id',
             'description' => 'nullable|string',
-            'image' => 'nullable|string|max:255',
+            'image' => 'nullable|image|mimes:jpeg,png,webp|max:2048',
             'sort_order' => 'nullable|integer|min:0',
             'is_active' => 'nullable|boolean',
             'meta_title' => 'nullable|string|max:255',
@@ -134,18 +164,52 @@ class CategoryController extends Controller
             ], 422);
         }
 
-        // Update slug if name changed
-        if (isset($validated['name']) && $validated['name'] !== $category->name) {
-            $validated['slug'] = $this->generateUniqueSlug($validated['name'], $id);
+        $uploadedPath = null;
+        $oldImage = $category->image;
+
+        DB::beginTransaction();
+
+        try {
+            if ($request->hasFile('image')) {
+                $uploadedPath = $request->file('image')->store('storage/categories', 'public');
+                $validated['image'] = $uploadedPath;
+            }
+
+            if (isset($validated['name']) && $validated['name'] !== $category->name) {
+                $validated['slug'] = $this->generateUniqueSlug($validated['name'], $id);
+            }
+
+            $category->update($validated);
+
+            DB::commit();
+
+            // Delete old image if a new one was uploaded and update was successful
+            if ($uploadedPath && $oldImage && Storage::disk('public')->exists($oldImage)) {
+                Storage::disk('public')->delete($oldImage);
+            }
+
+            // Return full URL for image
+            $categoryData = $category->fresh()->toArray();
+            if ($category->image) {
+                $categoryData['image'] = Storage::disk('public')->url($category->image);
+            }
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Category updated successfully.',
+                'data' => $categoryData,
+            ]);
+
+        } catch (\Exception $e) {
+            DB::rollBack();
+
+            // Clean up uploaded file if DB transaction fails
+            if ($uploadedPath && Storage::disk('public')->exists($uploadedPath)) {
+                Storage::disk('public')->delete($uploadedPath);
+            }
+
+            throw $e;
         }
-
-        $category->update($validated);
-
-        return response()->json([
-            'success' => true,
-            'message' => 'Category updated successfully.',
-            'data' => $category->fresh(),
-        ]);
     }
 
     /**
@@ -173,6 +237,11 @@ class CategoryController extends Controller
         // Move children to parent
         if ($category->children()->count() > 0) {
             $category->children()->update(['parent_id' => $category->parent_id]);
+        }
+
+        // Delete category image if exists
+        if ($category->image && Storage::disk('public')->exists($category->image)) {
+            Storage::disk('public')->delete($category->image);
         }
 
         $category->delete();

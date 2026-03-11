@@ -46,6 +46,7 @@ class Product extends Model
         'preorder_limit',
         'preorder_deposit_amount',
         'preorder_deposit_type',
+        'kinomap',
     ];
 
     protected $casts = [
@@ -64,6 +65,7 @@ class Product extends Model
         'requires_shipping' => 'boolean',
         'separate_shipping' => 'boolean',
         'is_preorder' => 'boolean',
+        'kinomap' => 'boolean',
         'preorder_release_date' => 'datetime',
         'preorder_limit' => 'integer',
         'preorder_deposit_amount' => 'decimal:2',

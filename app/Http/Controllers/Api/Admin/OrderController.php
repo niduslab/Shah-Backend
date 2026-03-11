@@ -21,7 +21,7 @@ class OrderController extends Controller
      */
     public function index(Request $request): JsonResponse
     {
-        $query = Order::with(['user', 'items.product', 'shippingAddress']);
+        $query = Order::with(['user', 'items.product.images', 'shippingAddress']);
 
         if ($request->filled('status')) {
             $query->where('status', $request->status);
@@ -76,7 +76,7 @@ class OrderController extends Controller
     public function show(int $id): JsonResponse
     {
         $order = Order::with([
-            'user', 'items.product', 'items.productVariation',
+            'user', 'items.product.images', 'items.productVariation',
             'shippingAddress', 'billingAddress', 'coupon',
             'payments', 'invoice'
         ])->find($id);

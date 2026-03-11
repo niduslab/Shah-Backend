@@ -35,8 +35,11 @@ class OrderController extends Controller
         $order = Order::where('order_number', $orderNumber)
             ->where('user_id', $request->user()->id)
             ->with([
-                'items.product', 'items.productVariation',
-                'shippingAddress', 'payments', 'invoice'
+                'items.product.images', 
+                'items.productVariation',
+                'shippingAddress', 
+                'payments', 
+                'invoice'
             ])
             ->first();
 

@@ -172,6 +172,28 @@ class CatalogService implements CatalogServiceInterface
     }
 
     /**
+     * Get product by slug with all relations.
+     * 
+     * @param string $slug
+     * @return Product|null
+     */
+    public function getProductBySlug(string $slug): ?Product
+    {
+        return Product::where('slug', $slug)
+            ->active()
+            ->with([
+                'category',
+                'brand',
+                'model',
+                'shippingClass',
+                'images' => fn($q) => $q->orderBy('sort_order'),
+                'variations.variationValues.variationOption.variation',
+                'reviews' => fn($q) => $q->approved()->latest()->limit(10),
+            ])
+            ->first();
+    }
+
+    /**
      * Search products with filters.
      * 
      * @param array $filters

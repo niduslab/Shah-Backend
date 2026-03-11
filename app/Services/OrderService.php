@@ -152,6 +152,195 @@ class OrderService implements OrderServiceInterface
     }
 
     /**
+     * Create an order with guest support.
+     */
+    public function createOrderWithGuest(?User $user, array $cartItems, array $shippingData, ?string $couponCode = null): Order
+    {
+        return DB::transaction(function () use ($user, $cartItems, $shippingData, $couponCode) {
+            // Handle guest checkout - create user if requested
+            if (!$user && !empty($shippingData['create_account'])) {
+                // Split guest name into first and last name
+                $nameParts = explode(' ', $shippingData['guest_name'], 2);
+                $firstName = $nameParts[0];
+                $lastName = $nameParts[1] ?? '';
+
+                $user = User::create([
+                    'first_name' => $firstName,
+                    'last_name' => $lastName,
+                    'email' => $shippingData['guest_email'],
+                    'phone' => $shippingData['guest_phone'],
+                    'password' => bcrypt($shippingData['password']),
+                    'user_type' => 'customer',
+                    'status' => true,
+                ]);
+            }
+
+            // Handle addresses for guest or authenticated users
+            $shippingAddressId = $shippingData['shipping_address_id'] ?? null;
+            $billingAddressId = $shippingData['billing_address_id'] ?? null;
+
+            // Create temporary addresses for guest if needed
+            if (!$shippingAddressId && !empty($shippingData['shipping_address'])) {
+                $shippingAddress = \App\Models\Address::create([
+                    'user_id' => $user?->id,
+                    'address_type' => 'shipping_address',
+                    'address_line_1' => $shippingData['shipping_address']['address_line_1'],
+                    'address_line_2' => $shippingData['shipping_address']['address_line_2'] ?? null,
+                    'city' => $shippingData['shipping_address']['city'],
+                    'state' => $shippingData['shipping_address']['state'] ?? null,
+                    'zip_code' => $shippingData['shipping_address']['zip_code'] ?? $shippingData['shipping_address']['postal_code'] ?? '00000',
+                    'contact_no' => $shippingData['shipping_address']['phone'],
+                    'is_default' => $user ? true : false,
+                ]);
+                $shippingAddressId = $shippingAddress->id;
+            }
+
+            // Handle billing address
+            if ($shippingData['use_shipping_for_billing'] ?? true) {
+                $billingAddressId = $shippingAddressId;
+            } elseif (!$billingAddressId && !empty($shippingData['billing_address'])) {
+                $billingAddress = \App\Models\Address::create([
+                    'user_id' => $user?->id,
+                    'address_type' => 'billing_address',
+                    'address_line_1' => $shippingData['billing_address']['address_line_1'],
+                    'address_line_2' => $shippingData['billing_address']['address_line_2'] ?? null,
+                    'city' => $shippingData['billing_address']['city'],
+                    'state' => $shippingData['billing_address']['state'] ?? null,
+                    'zip_code' => $shippingData['billing_address']['zip_code'] ?? $shippingData['billing_address']['postal_code'] ?? '00000',
+                    'contact_no' => $shippingData['billing_address']['phone'],
+                    'is_default' => false,
+                ]);
+                $billingAddressId = $billingAddress->id;
+            }
+
+            // Update shipping data with address IDs
+            $shippingData['shipping_address_id'] = $shippingAddressId;
+            $shippingData['billing_address_id'] = $billingAddressId;
+
+            // Store guest info for order
+            $guestEmail = $shippingData['guest_email'] ?? null;
+            $guestName = $shippingData['guest_name'] ?? null;
+            $guestPhone = $shippingData['guest_phone'] ?? null;
+
+            // Check if this is a preorder
+            $isPreorder = $shippingData['is_preorder'] ?? false;
+            $payDepositOnly = $shippingData['pay_deposit_only'] ?? false;
+
+            // Apply promotions
+            $promotionResult = $this->promotionService->applyPromotion($cartItems);
+            $subtotal = collect($promotionResult['items'])->sum(fn($item) => $item['discounted_price'] * $item['quantity']);
+            $promotionDiscount = $promotionResult['total_discount'];
+
+            // Calculate preorder deposit if applicable
+            $depositAmount = null;
+            $remainingAmount = null;
+            if ($isPreorder && $payDepositOnly) {
+                $depositAmount = 0;
+                foreach ($cartItems as $item) {
+                    $product = Product::find($item['product_id']);
+                    if ($product && $product->is_preorder) {
+                        $depositPerUnit = $product->calculatePreorderDeposit();
+                        $depositAmount += $depositPerUnit * $item['quantity'];
+                    }
+                }
+                $remainingAmount = $subtotal - $depositAmount;
+            }
+
+            // Apply coupon if provided
+            $coupon = null;
+            $couponDiscount = 0;
+            if ($couponCode) {
+                $couponResult = $this->couponService->validateCoupon(
+                    $couponCode,
+                    $user?->email ?? $guestEmail,
+                    $cartItems,
+                    $subtotal
+                );
+                if ($couponResult['valid']) {
+                    $coupon = $couponResult['coupon'];
+                    $couponDiscount = $couponResult['discount'];
+                }
+            }
+
+            // Calculate shipping
+            $address = \App\Models\Address::find($shippingAddressId);
+            $shippingMethod = $shippingData['shipping_method'] ?? ShippingService::METHOD_PATHAO_COURIER;
+
+            $itemsForShipping = $this->prepareItemsForShipping($cartItems);
+            $shippingCost = $this->shippingService->getShippingCostForMethod(
+                $shippingMethod,
+                $itemsForShipping,
+                $address,
+                $subtotal - $couponDiscount
+            );
+
+            // Check for free delivery promotion
+            if ($this->promotionService->hasFreeDeliveryPromotion($subtotal)) {
+                $shippingCost = 0;
+            }
+
+            // Check for free shipping coupon
+            if ($coupon && $this->couponService->providesFreeShipping($coupon)) {
+                $shippingCost = 0;
+            }
+
+            // Calculate totals
+            $totalDiscount = $promotionDiscount + $couponDiscount;
+            $taxAmount = 0;
+            $totalAmount = $subtotal + $shippingCost + $taxAmount - $couponDiscount;
+
+            // Determine preorder payment status
+            $preorderPaymentStatus = 'pending';
+            if ($isPreorder && $payDepositOnly) {
+                $preorderPaymentStatus = 'deposit_paid';
+            } elseif ($isPreorder && !$payDepositOnly) {
+                $preorderPaymentStatus = 'fully_paid';
+            }
+
+            // Create order
+            $order = Order::create([
+                'user_id' => $user?->id,
+                'order_number' => $this->generateOrderNumber(),
+                'order_type' => 'online',
+                'is_preorder' => $isPreorder,
+                'preorder_deposit_paid' => $depositAmount,
+                'preorder_remaining_amount' => $remainingAmount,
+                'preorder_payment_status' => $preorderPaymentStatus,
+                'shipping_address_id' => $shippingAddressId,
+                'billing_address_id' => $billingAddressId,
+                'subtotal' => $subtotal,
+                'shipping_cost' => $shippingCost,
+                'discount_amount' => $totalDiscount,
+                'tax_amount' => $taxAmount,
+                'total_amount' => $payDepositOnly ? $depositAmount : $totalAmount,
+                'coupon_id' => $coupon?->id,
+                'shipping_method' => $shippingMethod,
+                'status' => 'pending',
+                'payment_status' => 'pending',
+                'notes' => $shippingData['notes'] ?? null,
+                // Store guest info if not a registered user
+                'customer_name' => $user ? null : $guestName,
+                'customer_email' => $user ? null : $guestEmail,
+                'customer_phone' => $user ? null : $guestPhone,
+            ]);
+
+            // Create order items and reserve inventory
+            foreach ($promotionResult['items'] as $item) {
+                $orderItem = $this->createOrderItem($order, $item);
+                $this->inventoryService->reserveStock($orderItem);
+            }
+
+            // Record coupon usage
+            if ($coupon && $couponDiscount > 0) {
+                $this->couponService->recordCouponUsage($coupon, $order, $user?->email ?? $guestEmail, $couponDiscount);
+            }
+
+            return $order->load(['items', 'user', 'shippingAddress', 'billingAddress']);
+        });
+    }
+
+
+    /**
      * Create a POS order for in-store sales.
      * 
      * @param array $customerData Contains name, email, phone, address (optional)
@@ -283,7 +472,7 @@ class OrderService implements OrderServiceInterface
     public function getOrderHistory(User $user): Collection
     {
         return $user->orders()
-            ->with(['items.product', 'items.productVariation'])
+            ->with(['items.product.images', 'items.productVariation'])
             ->orderBy('created_at', 'desc')
             ->get();
     }

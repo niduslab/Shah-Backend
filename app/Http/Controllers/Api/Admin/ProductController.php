@@ -71,6 +71,7 @@ class ProductController extends Controller
             'shipping_notes' => 'nullable|string|max:500',
             'is_featured' => 'nullable|boolean',
             'is_trending' => 'nullable|boolean',
+            'kinomap' => 'nullable|boolean',
             'status' => 'nullable|in:active,inactive,draft',
             'meta_title' => 'nullable|string|max:255',
             'meta_description' => 'nullable|string',
@@ -180,6 +181,7 @@ class ProductController extends Controller
                 'shipping_notes' => 'nullable|string|max:500',
                 'is_featured' => 'nullable|boolean',
                 'is_trending' => 'nullable|boolean',
+                'kinomap' => 'nullable|boolean',
                 'status' => 'nullable|in:active,inactive,draft',
                 'meta_title' => 'nullable|string|max:255',
                 'meta_description' => 'nullable|string',
@@ -212,7 +214,16 @@ class ProductController extends Controller
                 'variations.*.attributes' => 'nullable|array',
                 'variations.*.attributes.*' => 'nullable|string|max:255',
                 'variations.*._delete' => 'nullable|boolean',
+                // Support for deleted variation IDs
+                'deleted_variation_ids' => 'nullable|array',
+                'deleted_variation_ids.*' => 'integer|exists:product_variations,id',
             ]);
+
+            // Handle deleted variations from deleted_variation_ids array
+            if (!empty($validated['deleted_variation_ids'])) {
+                $product->variations()->whereIn('id', $validated['deleted_variation_ids'])->delete();
+                unset($validated['deleted_variation_ids']); // Remove from validated data
+            }
 
             // Handle file uploads
             if (!empty($validated['images'])) {
@@ -361,7 +372,7 @@ class ProductController extends Controller
      */
     private function convertBooleanFields(Request $request): void
     {
-        $booleanFields = ['is_featured', 'is_trending', 'is_preorder'];
+        $booleanFields = ['is_featured', 'is_trending', 'is_preorder', 'kinomap'];
         
         foreach ($booleanFields as $field) {
             if ($request->has($field)) {

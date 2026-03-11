@@ -49,6 +49,11 @@ interface CatalogServiceInterface
     public function getTrendingProducts(int $limit = 10): Collection;
 
     /**
+     * Get product by slug with all relations.
+     */
+    public function getProductBySlug(string $slug): ?Product;
+
+    /**
      * Delete a product.
      */
     public function deleteProduct(Product $product): bool;

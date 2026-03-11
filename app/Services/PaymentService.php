@@ -34,12 +34,41 @@ class PaymentService implements PaymentServiceInterface
      * Process payment through SSL gateway.
      * 
      * @param Order $order
-     * @param string $method ssl_commerz, bkash, nagad
+     * @param string $method ssl_commerz, bkash, nagad, cod
      * @return array Contains 'success', 'redirect_url', 'payment_id'
      */
     public function processPayment(Order $order, string $method): array
     {
-        // Create pending payment record
+        // Handle Cash on Delivery
+        if ($method === 'cod') {
+            $payment = Payment::create([
+                'order_id' => $order->id,
+                'user_id' => $order->user_id,
+                'amount' => $order->total_amount,
+                'currency' => 'BDT',
+                'payment_method' => 'manual', // Store as manual in DB
+                'transaction_id' => $this->generateTransactionId('COD'),
+                'status' => 'pending',
+                'gateway_response' => ['method' => 'cod'],
+            ]);
+
+            // Update order status for COD
+            $order->update([
+                'status' => 'confirmed',
+                'payment_status' => 'pending', // Will be paid on delivery
+            ]);
+
+            return [
+                'success' => true,
+                'payment_id' => $payment->id,
+                'transaction_id' => $payment->transaction_id,
+                'amount' => $payment->amount,
+                'method' => 'cod',
+                'message' => 'Order placed successfully. Pay on delivery.',
+            ];
+        }
+
+        // Create pending payment record for online payments
         $payment = Payment::create([
             'order_id' => $order->id,
             'user_id' => $order->user_id,
@@ -100,18 +129,29 @@ class PaymentService implements PaymentServiceInterface
     /**
      * Handle payment gateway callback.
      * 
+     * @param string $method
      * @param array $data
-     * @return Payment
+     * @return array
      */
-    public function handlePaymentCallback(array $data): Payment
+    public function handlePaymentCallback(string $method, array $data): array
     {
-        return DB::transaction(function () use ($data) {
+        return DB::transaction(function () use ($method, $data) {
             $transactionId = $data['tran_id'] ?? $data['transaction_id'] ?? null;
+            
+            if (!$transactionId) {
+                return [
+                    'success' => false,
+                    'message' => 'Transaction ID not found',
+                ];
+            }
             
             $payment = $this->getPaymentByTransactionId($transactionId);
             
             if (!$payment) {
-                throw new \Exception('Payment not found');
+                return [
+                    'success' => false,
+                    'message' => 'Payment not found',
+                ];
             }
 
             $status = $this->mapGatewayStatus($data['status'] ?? 'FAILED');
@@ -134,7 +174,11 @@ class PaymentService implements PaymentServiceInterface
                 ]);
             }
 
-            return $payment;
+            return [
+                'success' => true,
+                'message' => 'Payment callback processed successfully',
+                'payment_status' => $status,
+            ];
         });
     }
 
@@ -195,15 +239,15 @@ class PaymentService implements PaymentServiceInterface
             'total_amount' => $order->total_amount,
             'currency' => 'BDT',
             'tran_id' => $payment->transaction_id,
-            'success_url' => route('payment.success'),
-            'fail_url' => route('payment.fail'),
-            'cancel_url' => route('payment.cancel'),
-            'ipn_url' => route('payment.ipn'),
+            'success_url' => url('/api/payments/ssl-commerz/success'),
+            'fail_url' => url('/api/payments/ssl-commerz/fail'),
+            'cancel_url' => url('/api/payments/ssl-commerz/cancel'),
+            'ipn_url' => url('/api/payments/ssl-commerz/ipn'),
             'cus_name' => $order->customer_name ?? $order->user?->full_name ?? 'Customer',
-            'cus_email' => $order->customer_email ?? $order->user?->email ?? '',
-            'cus_phone' => $order->customer_phone ?? $order->user?->phone ?? '',
-            'cus_add1' => $order->shippingAddress?->address_line_1 ?? '',
-            'cus_city' => $order->shippingAddress?->city ?? '',
+            'cus_email' => $order->customer_email ?? $order->user?->email ?? 'customer@example.com',
+            'cus_phone' => $order->customer_phone ?? $order->user?->phone ?? '01700000000',
+            'cus_add1' => $order->shippingAddress?->address_line_1 ?? 'N/A',
+            'cus_city' => $order->shippingAddress?->city ?? 'Dhaka',
             'cus_country' => 'Bangladesh',
             'shipping_method' => 'NO',
             'product_name' => 'Shah Sports Order #' . $order->order_number,

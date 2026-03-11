@@ -6,8 +6,10 @@ use Illuminate\Support\Facades\Route;
 Route::prefix('auth')->group(function () {
     Route::post('register', [\App\Http\Controllers\Api\AuthController::class, 'register']);
     Route::post('login', [\App\Http\Controllers\Api\AuthController::class, 'login']);
+    Route::post('google/callback', [\App\Http\Controllers\Api\AuthController::class, 'googleCallback']);
     Route::post('forgot-password', [\App\Http\Controllers\Api\AuthController::class, 'forgotPassword']);
     Route::post('reset-password', [\App\Http\Controllers\Api\AuthController::class, 'resetPassword']);
+    Route::get('csrf-token', [\App\Http\Controllers\Api\AuthController::class, 'csrfToken']);
 });
 
 // Catalog (Public)
@@ -56,12 +58,19 @@ Route::get('banners/{position?}', [\App\Http\Controllers\Api\PageController::cla
 // Order Tracking (Public)
 Route::get('orders/{orderNumber}/track', [\App\Http\Controllers\Api\OrderController::class, 'track']);
 
+// Checkout (Public - supports both guest and authenticated)
+Route::prefix('checkout')->group(function () {
+    Route::post('shipping-methods', [\App\Http\Controllers\Api\CheckoutController::class, 'shippingMethods']);
+    Route::post('preview', [\App\Http\Controllers\Api\CheckoutController::class, 'preview']);
+    Route::post('process', [\App\Http\Controllers\Api\CheckoutController::class, 'process']);
+});
+
 // Payment Callbacks (Public - No Auth)
 Route::prefix('payments')->group(function () {
-    Route::post('ssl-commerz/ipn', [\App\Http\Controllers\Api\PaymentController::class, 'sslCommerzIpn']);
-    Route::get('ssl-commerz/success', [\App\Http\Controllers\Api\PaymentController::class, 'sslCommerzSuccess']);
-    Route::get('ssl-commerz/fail', [\App\Http\Controllers\Api\PaymentController::class, 'sslCommerzFail']);
-    Route::get('ssl-commerz/cancel', [\App\Http\Controllers\Api\PaymentController::class, 'sslCommerzCancel']);
+    Route::post('ssl-commerz/ipn', [\App\Http\Controllers\Api\PaymentController::class, 'sslCommerzIpn'])->name('payment.ipn');
+    Route::match(['get', 'post'], 'ssl-commerz/success', [\App\Http\Controllers\Api\PaymentController::class, 'sslCommerzSuccess'])->name('payment.success');
+    Route::match(['get', 'post'], 'ssl-commerz/fail', [\App\Http\Controllers\Api\PaymentController::class, 'sslCommerzFail'])->name('payment.fail');
+    Route::match(['get', 'post'], 'ssl-commerz/cancel', [\App\Http\Controllers\Api\PaymentController::class, 'sslCommerzCancel'])->name('payment.cancel');
     Route::get('{orderNumber}/status', [\App\Http\Controllers\Api\PaymentController::class, 'status']);
 });
 
@@ -72,13 +81,6 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('auth/user', [\App\Http\Controllers\Api\AuthController::class, 'user']);
     Route::put('auth/profile', [\App\Http\Controllers\Api\AuthController::class, 'updateProfile']);
     Route::put('auth/password', [\App\Http\Controllers\Api\AuthController::class, 'changePassword']);
-
-    // Checkout
-    Route::prefix('checkout')->group(function () {
-        Route::post('shipping-methods', [\App\Http\Controllers\Api\CheckoutController::class, 'shippingMethods']);
-        Route::post('preview', [\App\Http\Controllers\Api\CheckoutController::class, 'preview']);
-        Route::post('process', [\App\Http\Controllers\Api\CheckoutController::class, 'process']);
-    });
 
     // Orders
     Route::prefix('orders')->group(function () {

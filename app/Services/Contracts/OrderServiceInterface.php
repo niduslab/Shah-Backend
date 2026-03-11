@@ -14,6 +14,11 @@ interface OrderServiceInterface
     public function createOrder(User $user, array $cartItems, array $shippingData, ?string $couponCode = null): Order;
 
     /**
+     * Create an order with guest support (can create user account).
+     */
+    public function createOrderWithGuest(?User $user, array $cartItems, array $shippingData, ?string $couponCode = null): Order;
+
+    /**
      * Create a POS order for in-store sales.
      */
     public function createPosOrder(array $customerData, array $items, ?float $discount = null): Order;

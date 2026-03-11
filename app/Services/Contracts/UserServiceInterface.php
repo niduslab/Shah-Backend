@@ -55,4 +55,14 @@ interface UserServiceInterface
      * Get all customers with optional filters.
      */
     public function getCustomers(array $filters = []): \Illuminate\Contracts\Pagination\LengthAwarePaginator;
+
+    /**
+     * Find or create user from OAuth provider.
+     */
+    public function findOrCreateFromOAuth(array $data): User;
+
+    /**
+     * Find user by provider ID.
+     */
+    public function findByProviderId(string $provider, string $providerId): ?User;
 }

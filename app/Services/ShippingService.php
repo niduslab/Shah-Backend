@@ -20,6 +20,7 @@ class ShippingService implements ShippingServiceInterface
      */
     public const METHOD_SHAH_SPORTS_TEAM = 'shah_sports_team';
     public const METHOD_PATHAO_COURIER = 'pathao_courier';
+    public const METHOD_STANDARD = 'standard';
 
     /**
      * Weight thresholds for method recommendations.
@@ -70,6 +71,22 @@ class ShippingService implements ShippingServiceInterface
         $totalWeight = $this->calculateTotalWeight($shippingGroups['default_shipping']);
         $availableMethods = $this->getAvailableMethods($shippingGroups['default_shipping'], $address);
         $costs = [];
+
+        // Add standard shipping method
+        $standardCost = $this->calculateStandardShippingCost($shippingGroups['default_shipping'], $address, $subtotal);
+        $totalStandardCost = $standardCost + $customShippingCost;
+        
+        $costs[self::METHOD_STANDARD] = [
+            'code' => self::METHOD_STANDARD,
+            'name' => 'Standard Shipping',
+            'description' => 'Free shipping on orders over 1000 BDT',
+            'cost' => round($totalStandardCost, 2),
+            'base_shipping_cost' => round($standardCost, 2),
+            'custom_shipping_cost' => round($customShippingCost, 2),
+            'delivery_time' => '3-5 business days',
+            'free_shipping_min_order' => 1000,
+            'is_free' => $totalStandardCost == 0,
+        ];
 
         foreach ($availableMethods as $method) {
             $rate = $this->getApplicableRate($method['code'], $address, $shippingGroups['default_shipping']);
@@ -499,6 +516,11 @@ class ShippingService implements ShippingServiceInterface
             return $customShippingCost;
         }
         
+        // Handle standard shipping method
+        if ($method === self::METHOD_STANDARD) {
+            return $this->calculateStandardShippingCost($shippingGroups['default_shipping'], $address, $subtotal) + $customShippingCost;
+        }
+        
         $totalWeight = $this->calculateTotalWeight($shippingGroups['default_shipping']);
         
         $rate = $this->getApplicableRate($method, $address, $shippingGroups['default_shipping']);
@@ -516,6 +538,31 @@ class ShippingService implements ShippingServiceInterface
         $standardCost = $this->calculateCostFromRate($rate, $totalWeight, $shippingGroups['default_shipping'], $address);
         
         return $standardCost + $customShippingCost;
+    }
+
+    /**
+     * Calculate standard shipping cost.
+     */
+    protected function calculateStandardShippingCost(array $items, ?Address $address = null, float $subtotal = 0): float
+    {
+        // Free shipping for orders above 1000 BDT
+        if ($subtotal >= 1000) {
+            return 0;
+        }
+
+        // Calculate total weight
+        $totalWeight = $this->calculateTotalWeight($items);
+
+        // Weight-based pricing
+        if ($totalWeight <= 1) {
+            return 60; // Up to 1kg
+        } elseif ($totalWeight <= 5) {
+            return 100; // 1-5kg
+        } elseif ($totalWeight <= 10) {
+            return 150; // 5-10kg
+        } else {
+            return 150 + (($totalWeight - 10) * 15); // 15 BDT per additional kg
+        }
     }
 
     /**

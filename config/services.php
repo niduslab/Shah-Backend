@@ -35,4 +35,16 @@ return [
         'secret' => env('STRIPE_SECRET'),
     ],
 
+    'google' => [
+        'client_id' => env('GOOGLE_CLIENT_ID'),
+        'client_secret' => env('GOOGLE_CLIENT_SECRET'),
+        'redirect' => env('GOOGLE_REDIRECT_URI'),
+    ],
+
+    'sslcommerz' => [
+        'store_id' => env('SSLCZ_STORE_ID'),
+        'store_password' => env('SSLCZ_STORE_PASSWORD'),
+        'sandbox' => env('SSLCZ_TESTMODE', true),
+    ],
+
 ];

@@ -187,4 +187,71 @@ class AuthController extends Controller
             'message' => $result['message'],
         ], $result['success'] ? 200 : 400);
     }
+
+    /**
+     * Handle Google OAuth callback.
+     */
+    public function googleCallback(Request $request): JsonResponse
+    {
+        $validated = $request->validate([
+            'token' => 'required|string',
+        ]);
+
+        try {
+            // Verify Google token using Socialite
+            $googleUser = \Laravel\Socialite\Facades\Socialite::driver('google')
+                ->userFromToken($validated['token']);
+
+            if (!$googleUser) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Invalid Google token.',
+                ], 401);
+            }
+
+            // Find or create user
+            $user = $this->userService->findOrCreateFromOAuth([
+                'provider' => 'google',
+                'provider_id' => $googleUser->getId(),
+                'email' => $googleUser->getEmail(),
+                'name' => $googleUser->getName(),
+                'avatar' => $googleUser->getAvatar(),
+            ]);
+
+            if (!$user->status) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Your account has been deactivated.',
+                ], 403);
+            }
+
+            Auth::login($user);
+            $request->session()->regenerate();
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Login successful.',
+                'data' => [
+                    'user' => $user,
+                ],
+            ]);
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Google authentication failed.',
+                'error' => $e->getMessage(),
+            ], 500);
+        }
+    }
+
+    /**
+     * Get CSRF token for SPA authentication.
+     */
+    public function csrfToken(): JsonResponse
+    {
+        return response()->json([
+            'success' => true,
+            'csrf_token' => csrf_token(),
+        ]);
+    }
 }

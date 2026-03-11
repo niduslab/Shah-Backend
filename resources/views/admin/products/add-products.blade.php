@@ -208,6 +208,15 @@
                                                                         Featured</label>
                                                                 </div>
                                                             </div>
+                                                            <div class="mb-4">
+                                                                <label class="form-check-label">Kinomap</label>
+                                                                <div class="form-check">
+                                                                    <input class="form-check-input" type="checkbox"
+                                                                        id="kinomap" name="kinomap"
+                                                                        {{ old('kinomap') ? 'checked' : '' }}>
+                                                                    <label class="form-check-label" for="kinomap">Has Kinomap</label>
+                                                                </div>
+                                                            </div>
                                                         </div>
 
                                                         <div class="col-md-8">

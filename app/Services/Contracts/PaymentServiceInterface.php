@@ -20,7 +20,7 @@ interface PaymentServiceInterface
     /**
      * Handle payment gateway callback.
      */
-    public function handlePaymentCallback(array $data): Payment;
+    public function handlePaymentCallback(string $method, array $data): array;
 
     /**
      * Get payment by transaction ID.

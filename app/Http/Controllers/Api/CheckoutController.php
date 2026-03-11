@@ -55,35 +55,73 @@ class CheckoutController extends Controller
      */
     public function process(Request $request): JsonResponse
     {
-        $validated = $request->validate([
+        $user = $request->user();
+        
+        // Base validation rules
+        $rules = [
             'items' => 'required|array|min:1',
             'items.*.product_id' => 'required|exists:products,id',
             'items.*.variation_id' => 'nullable|exists:product_variations,id',
             'items.*.quantity' => 'required|integer|min:1',
             'items.*.price' => 'required|numeric|min:0',
             'items.*.is_preorder' => 'nullable|boolean',
-            'shipping_address_id' => 'required|exists:addresses,id',
+            // Shipping address (can be ID for auth users or inline for guests)
+            'shipping_address_id' => 'nullable|exists:addresses,id',
+            'shipping_address' => 'required_without:shipping_address_id|array',
+            'shipping_address.address_line_1' => 'required_with:shipping_address|string',
+            'shipping_address.city' => 'required_with:shipping_address|string',
+            'shipping_address.state' => 'nullable|string',
+            'shipping_address.postal_code' => 'nullable|string',
+            'shipping_address.country' => 'required_with:shipping_address|string',
+            'shipping_address.phone' => 'required_with:shipping_address|string',
+            // Billing address
             'billing_address_id' => 'nullable|exists:addresses,id',
-            'shipping_method' => 'required|in:shah_sports_team,pathao_courier',
+            'billing_address' => 'nullable|array',
+            'use_shipping_for_billing' => 'nullable|boolean',
+            // Other fields
+            'shipping_method' => 'required|in:shah_sports_team,pathao_courier,standard',
             'coupon_code' => 'nullable|string',
-            'payment_method' => 'required|in:ssl_commerz,bkash,nagad',
+            'payment_method' => 'required|in:ssl_commerz,bkash,nagad,cod',
             'notes' => 'nullable|string|max:500',
             'is_preorder' => 'nullable|boolean',
             'pay_deposit_only' => 'nullable|boolean',
-        ]);
+            // Account creation for guest
+            'create_account' => 'nullable|boolean',
+            'password' => 'required_if:create_account,true|string|min:8',
+        ];
 
-        $user = $request->user();
+        // Add guest fields validation only if user is not authenticated
+        if (!$user) {
+            $rules['guest_email'] = 'required|email';
+            $rules['guest_name'] = 'required|string|max:255';
+            $rules['guest_phone'] = 'required|string|max:20';
+        } else {
+            $rules['guest_email'] = 'nullable|email';
+            $rules['guest_name'] = 'nullable|string|max:255';
+            $rules['guest_phone'] = 'nullable|string|max:20';
+        }
 
-        $order = $this->orderService->createOrder(
+        $validated = $request->validate($rules);
+
+        $order = $this->orderService->createOrderWithGuest(
             $user,
             $validated['items'],
             [
-                'shipping_address_id' => $validated['shipping_address_id'],
-                'billing_address_id' => $validated['billing_address_id'],
+                'shipping_address_id' => $validated['shipping_address_id'] ?? null,
+                'shipping_address' => $validated['shipping_address'] ?? null,
+                'billing_address_id' => $validated['billing_address_id'] ?? null,
+                'billing_address' => $validated['billing_address'] ?? null,
+                'use_shipping_for_billing' => $validated['use_shipping_for_billing'] ?? true,
                 'shipping_method' => $validated['shipping_method'],
                 'notes' => $validated['notes'] ?? null,
                 'is_preorder' => $validated['is_preorder'] ?? false,
                 'pay_deposit_only' => $validated['pay_deposit_only'] ?? false,
+                // Guest info
+                'guest_email' => $validated['guest_email'] ?? null,
+                'guest_name' => $validated['guest_name'] ?? null,
+                'guest_phone' => $validated['guest_phone'] ?? null,
+                'create_account' => $validated['create_account'] ?? false,
+                'password' => $validated['password'] ?? null,
             ],
             $validated['coupon_code'] ?? null
         );
@@ -94,13 +132,21 @@ class CheckoutController extends Controller
             $validated['payment_method']
         );
 
+        $responseData = [
+            'order' => $order,
+            'payment' => $paymentResult,
+            'account_created' => $order->user_id && ($validated['create_account'] ?? false),
+        ];
+
+        // For COD, add success message
+        if ($validated['payment_method'] === 'cod') {
+            $responseData['message'] = 'Order placed successfully. You will pay on delivery.';
+        }
+
         return response()->json([
             'success' => true,
             'message' => 'Order created successfully.',
-            'data' => [
-                'order' => $order,
-                'payment' => $paymentResult,
-            ],
+            'data' => $responseData,
         ], 201);
     }
 
