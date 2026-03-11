@@ -141,6 +141,9 @@ class ReviewController extends Controller
 
         $review->update(['admin_response' => $validated['admin_response']]);
 
+        // Notify customer about admin response
+        app(\App\Services\NotificationService::class)->notifyReviewResponse($review);
+
         return response()->json([
             'success' => true,
             'message' => 'Response added to review.',

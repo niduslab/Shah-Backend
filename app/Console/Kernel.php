@@ -12,7 +12,11 @@ class Kernel extends ConsoleKernel
      */
     protected function schedule(Schedule $schedule): void
     {
-        // $schedule->command('inspire')->hourly();
+        // Send flash deal notifications every 15 minutes
+        $schedule->command('notifications:flash-deals')->everyFifteenMinutes();
+        
+        // Clean up expired OTPs daily
+        $schedule->command('otp:cleanup')->daily();
     }
 
     /**

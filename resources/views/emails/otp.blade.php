@@ -42,21 +42,36 @@
 
 <div class="container">
     <div class="header">
-        <h1>Verify Your Email</h1>
+        @if(isset($purpose) && $purpose === 'registration')
+            <h1>Email Verification OTP</h1>
+        @else
+            <h1>Password Reset OTP</h1>
+        @endif
     </div>
     <div style="padding: 20px">
         <p>Hello,</p>
-        <p>Thank you for registering your shop. To verify your email address, please use the following OTP code:</p>
+        
+        @if(isset($purpose) && $purpose === 'registration')
+            <p>You requested to verify your email address. Please use the following OTP code:</p>
+        @else
+            <p>You requested to reset your password. Please use the following OTP code:</p>
+        @endif
 
         <div class="otp-code">{{ $otp }}</div>
 
-        <p>Please enter this code on the email verification page. This code is valid for 5 minutes.</p>
+        @if(isset($purpose) && $purpose === 'registration')
+            <p>Please enter this code on the verification page. This code is valid for 5 minutes.</p>
+        @else
+            <p>Please enter this code on the password reset page. This code is valid for 5 minutes.</p>
+        @endif
+        
+        <p><strong>If you didn't request this, please ignore this email.</strong></p>
 
-        <p>Thank you,<br> The NidusCart Team</p>
+        <p>Thank you,<br> The Shah Sports Team</p>
 
         <div class="footer">
             <small>This an auto generated email. Never reply to this email.</small> <br>
-            &copy; {{ date('Y') }} NidusCart. All rights reserved.
+            &copy; {{ date('Y') }} Shah Sports. All rights reserved.
         </div>
     </div>
 </div>

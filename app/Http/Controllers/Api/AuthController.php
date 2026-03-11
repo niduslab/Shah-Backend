@@ -13,7 +13,8 @@ use Illuminate\Validation\Rules\Password;
 class AuthController extends Controller
 {
     public function __construct(
-        protected UserServiceInterface $userService
+        protected UserServiceInterface $userService,
+        protected \App\Services\OtpService $otpService
     ) {}
 
     /**
@@ -108,16 +109,21 @@ class AuthController extends Controller
     public function updateProfile(Request $request): JsonResponse
     {
         $validated = $request->validate([
-            'name' => 'sometimes|string|max:255',
+            'first_name' => 'sometimes|string|max:255',
+            'last_name' => 'sometimes|string|max:255',
+            'email' => 'sometimes|email|unique:users,email,' . $request->user()->id,
             'phone' => 'nullable|string|max:20',
+            'date_of_birth' => 'nullable|date|before:today',
+            'gender' => 'nullable|in:male,female,other',
         ]);
 
-        $user = $this->userService->updateProfile($request->user(), $validated);
+        $user = $request->user();
+        $user->update($validated);
 
         return response()->json([
             'success' => true,
             'message' => 'Profile updated successfully.',
-            'data' => $user,
+            'data' => $user->fresh(),
         ]);
     }
 
@@ -253,5 +259,84 @@ class AuthController extends Controller
             'success' => true,
             'csrf_token' => csrf_token(),
         ]);
+    }
+
+    /**
+     * Send OTP for password reset.
+     */
+    public function sendOtp(Request $request): JsonResponse
+    {
+        $validated = $request->validate([
+            'email' => 'required|email|exists:users,email',
+        ]);
+
+        $result = $this->otpService->sendOtp($validated['email']);
+
+        return response()->json([
+            'success' => $result['success'],
+            'message' => $result['message'],
+        ]);
+    }
+
+    /**
+     * Send OTP for new user registration.
+     */
+    public function sendRegistrationOtp(Request $request): JsonResponse
+    {
+        $validated = $request->validate([
+            'email' => 'required|email|unique:users,email',
+        ]);
+
+        $result = $this->otpService->sendRegistrationOtp($validated['email']);
+
+        return response()->json([
+            'success' => $result['success'],
+            'message' => $result['message'],
+        ]);
+    }
+    
+
+    /**
+     * Verify OTP code.
+     */
+    public function verifyOtp(Request $request): JsonResponse
+    {
+        $validated = $request->validate([
+            'email' => 'required|email',
+            'otp' => 'required|string|size:6',
+        ]);
+
+        $result = $this->otpService->verifyOtp(
+            $validated['email'],
+            $validated['otp']
+        );
+
+        return response()->json([
+            'success' => $result['success'],
+            'message' => $result['message'],
+        ], $result['success'] ? 200 : 400);
+    }
+
+    /**
+     * Reset password with OTP.
+     */
+    public function resetPasswordWithOtp(Request $request): JsonResponse
+    {
+        $validated = $request->validate([
+            'email' => 'required|email',
+            'otp' => 'required|string|size:6',
+            'password' => ['required', 'confirmed', Password::min(8)],
+        ]);
+
+        $result = $this->otpService->resetPasswordWithOtp(
+            $validated['email'],
+            $validated['otp'],
+            $validated['password']
+        );
+
+        return response()->json([
+            'success' => $result['success'],
+            'message' => $result['message'],
+        ], $result['success'] ? 200 : 400);
     }
 }

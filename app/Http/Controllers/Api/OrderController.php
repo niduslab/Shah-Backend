@@ -107,6 +107,9 @@ class OrderController extends Controller
 
         $order = $this->orderService->cancelOrder($order, $validated['reason']);
 
+        // Notify admins about cancellation
+        app(\App\Services\NotificationService::class)->notifyOrderCancelled($order, 'customer');
+
         return response()->json([
             'success' => true,
             'message' => 'Order cancelled successfully.',

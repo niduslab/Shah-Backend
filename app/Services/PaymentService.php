@@ -40,7 +40,7 @@ class PaymentService implements PaymentServiceInterface
     public function processPayment(Order $order, string $method): array
     {
         // Handle Cash on Delivery
-        if ($method === 'cod') {
+        if (in_array($method, ['cod', 'cash_on_delivery'])) {
             $payment = Payment::create([
                 'order_id' => $order->id,
                 'user_id' => $order->user_id,
@@ -49,7 +49,7 @@ class PaymentService implements PaymentServiceInterface
                 'payment_method' => 'manual', // Store as manual in DB
                 'transaction_id' => $this->generateTransactionId('COD'),
                 'status' => 'pending',
-                'gateway_response' => ['method' => 'cod'],
+                'gateway_response' => ['method' => $method],
             ]);
 
             // Update order status for COD
@@ -63,7 +63,7 @@ class PaymentService implements PaymentServiceInterface
                 'payment_id' => $payment->id,
                 'transaction_id' => $payment->transaction_id,
                 'amount' => $payment->amount,
-                'method' => 'cod',
+                'method' => $method,
                 'message' => 'Order placed successfully. Pay on delivery.',
             ];
         }

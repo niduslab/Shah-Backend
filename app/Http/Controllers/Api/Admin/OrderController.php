@@ -112,7 +112,11 @@ class OrderController extends Controller
             'status' => 'required|in:pending,confirmed,processing,shipped,delivered,cancelled',
         ]);
 
+        $oldStatus = $order->status;
         $order = $this->orderService->updateStatus($order, $validated['status']);
+
+        // Notify customer about status change
+        app(\App\Services\NotificationService::class)->notifyOrderStatusChanged($order, $oldStatus, $validated['status']);
 
         return response()->json([
             'success' => true,
@@ -154,6 +158,9 @@ class OrderController extends Controller
         ]);
 
         $order = $this->orderService->cancelOrder($order, $validated['reason']);
+
+        // Notify customer about cancellation
+        app(\App\Services\NotificationService::class)->notifyOrderCancelled($order, 'admin');
 
         return response()->json([
             'success' => true,

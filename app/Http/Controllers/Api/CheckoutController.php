@@ -81,7 +81,7 @@ class CheckoutController extends Controller
             // Other fields
             'shipping_method' => 'required|in:shah_sports_team,pathao_courier,standard',
             'coupon_code' => 'nullable|string',
-            'payment_method' => 'required|in:ssl_commerz,bkash,nagad,cod',
+            'payment_method' => 'required|in:ssl_commerz,bkash,nagad,cod,cash_on_delivery',
             'notes' => 'nullable|string|max:500',
             'is_preorder' => 'nullable|boolean',
             'pay_deposit_only' => 'nullable|boolean',
@@ -132,6 +132,12 @@ class CheckoutController extends Controller
             $validated['payment_method']
         );
 
+        // Notify admins about new order
+        app(\App\Services\NotificationService::class)->notifyNewOrder($order);
+
+        // Notify customer about order confirmation
+        app(\App\Services\NotificationService::class)->notifyOrderConfirmed($order);
+
         $responseData = [
             'order' => $order,
             'payment' => $paymentResult,
@@ -139,7 +145,7 @@ class CheckoutController extends Controller
         ];
 
         // For COD, add success message
-        if ($validated['payment_method'] === 'cod') {
+        if (in_array($validated['payment_method'], ['cod', 'cash_on_delivery'])) {
             $responseData['message'] = 'Order placed successfully. You will pay on delivery.';
         }
 

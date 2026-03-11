@@ -92,6 +92,9 @@ class ReviewController extends Controller
 
         $review = $this->reviewService->createReview($user, $validated);
 
+        // Notify admins about new review
+        app(\App\Services\NotificationService::class)->notifyNewReview($review);
+
         return response()->json([
             'success' => true,
             'message' => 'Review submitted successfully. It will be visible after approval.',

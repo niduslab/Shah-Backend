@@ -22,7 +22,7 @@ class NotifyLowStock implements ShouldQueue
         // Log the alert
         Log::warning($message);
 
-        // TODO: Send notification to admin users
-        // You can implement admin notification here using Laravel Notifications
+        // Send notification to admin users
+        app(\App\Services\NotificationService::class)->notifyLowStock($product, $currentStock);
     }
 }

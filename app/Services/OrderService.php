@@ -44,7 +44,7 @@ class OrderService implements OrderServiceInterface
 
             // Apply promotions
             $promotionResult = $this->promotionService->applyPromotion($cartItems);
-            $subtotal = collect($promotionResult['items'])->sum(fn($item) => $item['discounted_price'] * $item['quantity']);
+            $subtotal = collect($promotionResult['items'])->sum(fn($item) => $item['price'] * $item['quantity']);
             $promotionDiscount = $promotionResult['total_discount'];
 
             // Calculate preorder deposit if applicable
@@ -59,7 +59,7 @@ class OrderService implements OrderServiceInterface
                         $depositAmount += $depositPerUnit * $item['quantity'];
                     }
                 }
-                $remainingAmount = $subtotal - $depositAmount;
+                $remainingAmount = ($subtotal - $promotionDiscount) - $depositAmount;
             }
 
             // Apply coupon if provided
@@ -103,7 +103,7 @@ class OrderService implements OrderServiceInterface
             // Calculate totals
             $totalDiscount = $promotionDiscount + $couponDiscount;
             $taxAmount = 0; // Bangladesh typically doesn't have VAT on e-commerce
-            $totalAmount = $subtotal + $shippingCost + $taxAmount - $couponDiscount;
+            $totalAmount = $subtotal + $shippingCost + $taxAmount - $totalDiscount;
 
             // Determine preorder payment status
             $preorderPaymentStatus = 'pending';
@@ -228,7 +228,7 @@ class OrderService implements OrderServiceInterface
 
             // Apply promotions
             $promotionResult = $this->promotionService->applyPromotion($cartItems);
-            $subtotal = collect($promotionResult['items'])->sum(fn($item) => $item['discounted_price'] * $item['quantity']);
+            $subtotal = collect($promotionResult['items'])->sum(fn($item) => $item['price'] * $item['quantity']);
             $promotionDiscount = $promotionResult['total_discount'];
 
             // Calculate preorder deposit if applicable
@@ -243,7 +243,7 @@ class OrderService implements OrderServiceInterface
                         $depositAmount += $depositPerUnit * $item['quantity'];
                     }
                 }
-                $remainingAmount = $subtotal - $depositAmount;
+                $remainingAmount = ($subtotal - $promotionDiscount) - $depositAmount;
             }
 
             // Apply coupon if provided
@@ -287,7 +287,7 @@ class OrderService implements OrderServiceInterface
             // Calculate totals
             $totalDiscount = $promotionDiscount + $couponDiscount;
             $taxAmount = 0;
-            $totalAmount = $subtotal + $shippingCost + $taxAmount - $couponDiscount;
+            $totalAmount = $subtotal + $shippingCost + $taxAmount - $totalDiscount;
 
             // Determine preorder payment status
             $preorderPaymentStatus = 'pending';

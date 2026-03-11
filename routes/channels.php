@@ -9,7 +9,9 @@ Broadcast::channel('user.{id}', function ($user, $id) {
     return (int) $user->id === (int) $id; // Allow access only to the authenticated user
 });
 
-
+Broadcast::channel('admin', function ($user) {
+    return $user->isAdmin(); // Only admins can listen to admin channel
+});
 
 Broadcast::channel('chat.{chatId}', function ($user, $chatId) {
     // This can be empty or you can check some condition for the public chat

@@ -9,6 +9,11 @@ Route::prefix('auth')->group(function () {
     Route::post('google/callback', [\App\Http\Controllers\Api\AuthController::class, 'googleCallback']);
     Route::post('forgot-password', [\App\Http\Controllers\Api\AuthController::class, 'forgotPassword']);
     Route::post('reset-password', [\App\Http\Controllers\Api\AuthController::class, 'resetPassword']);
+    // OTP-based password reset
+    Route::post('send-otp', [\App\Http\Controllers\Api\AuthController::class, 'sendOtp']);
+    Route::post('send-registration-otp', [\App\Http\Controllers\Api\AuthController::class, 'sendRegistrationOtp']);
+    Route::post('verify-otp', [\App\Http\Controllers\Api\AuthController::class, 'verifyOtp']);
+    Route::post('reset-password-otp', [\App\Http\Controllers\Api\AuthController::class, 'resetPasswordWithOtp']);
     Route::get('csrf-token', [\App\Http\Controllers\Api\AuthController::class, 'csrfToken']);
 });
 
@@ -316,4 +321,14 @@ Route::prefix('admin')->middleware(['auth:sanctum', 'admin'])->group(function ()
 
     // Media Library
     Route::apiResource('media', \App\Http\Controllers\Api\Admin\MediaLibraryController::class);
+
+    // Notifications (Admin)
+    Route::prefix('notifications')->group(function () {
+        Route::get('/', [\App\Http\Controllers\Api\Admin\NotificationController::class, 'index']);
+        Route::get('unread-count', [\App\Http\Controllers\Api\Admin\NotificationController::class, 'unreadCount']);
+        Route::post('{id}/mark-as-read', [\App\Http\Controllers\Api\Admin\NotificationController::class, 'markAsRead']);
+        Route::post('mark-all-as-read', [\App\Http\Controllers\Api\Admin\NotificationController::class, 'markAllAsRead']);
+        Route::delete('{id}', [\App\Http\Controllers\Api\Admin\NotificationController::class, 'destroy']);
+        Route::post('clear', [\App\Http\Controllers\Api\Admin\NotificationController::class, 'clear']);
+    });
 });
