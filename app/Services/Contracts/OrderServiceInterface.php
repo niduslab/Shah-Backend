@@ -4,6 +4,7 @@ namespace App\Services\Contracts;
 
 use App\Models\Order;
 use App\Models\User;
+use Illuminate\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Collection;
 
 interface OrderServiceInterface
@@ -37,6 +38,11 @@ interface OrderServiceInterface
      * Get order history for a user.
      */
     public function getOrderHistory(User $user): Collection;
+
+    /**
+     * Get paginated order history for a user.
+     */
+    public function getOrderHistoryPaginated(User $user, int $perPage = 15): LengthAwarePaginator;
 
     /**
      * Get order by order number.

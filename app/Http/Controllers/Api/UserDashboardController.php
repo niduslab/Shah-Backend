@@ -41,7 +41,7 @@ class UserDashboardController extends Controller
         // Pending reviews (delivered orders without reviews)
         $pendingReviews = Order::where('user_id', $user->id)
             ->where('status', 'delivered')
-            ->whereDoesntHave('items.reviews', function ($query) use ($user) {
+            ->whereDoesntHave('reviews', function ($query) use ($user) {
                 $query->where('user_id', $user->id);
             })
             ->count();
@@ -56,9 +56,9 @@ class UserDashboardController extends Controller
 
         // Preorder balance
         $preorderBalance = Order::where('user_id', $user->id)
-            ->where('order_type', 'preorder')
-            ->where('payment_status', 'partial')
-            ->sum('remaining_amount');
+            ->where('is_preorder', true)
+            ->where('preorder_payment_status', 'deposit_paid')
+            ->sum('preorder_remaining_amount');
 
         return response()->json([
             'success' => true,

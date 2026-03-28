@@ -87,8 +87,11 @@ class Promotion extends Model
                 $discount = $amount * ($this->discount_value / 100);
                 break;
             case 'fixed_amount':
-            case 'flash_sale':
                 $discount = $this->discount_value;
+                break;
+            case 'flash_sale':
+                // Flash sale is treated as percentage discount
+                $discount = $amount * ($this->discount_value / 100);
                 break;
             case 'free_delivery':
                 // Handled separately in shipping calculation

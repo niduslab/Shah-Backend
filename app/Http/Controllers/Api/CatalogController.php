@@ -58,7 +58,7 @@ class CatalogController extends Controller
     /**
      * Get all brands.
      */
-    public function brands(): JsonResponse
+    public function brands(Request $request): JsonResponse
     {
         $brands = Brand::active()
             ->orderBy('sort_order')
@@ -78,7 +78,7 @@ class CatalogController extends Controller
         $filters = $request->only([
             'search', 'category_id', 'brand_id',
             'min_price', 'max_price', 'in_stock',
-            'is_featured', 'is_trending',
+            'is_featured', 'is_trending', 'is_preorder',
             'sort_by', 'sort_order', 'per_page'
         ]);
 

@@ -37,6 +37,39 @@ class PromotionService implements PromotionServiceInterface
     public function applyPromotion(array $cartItems): array
     {
         $activePromotions = $this->getActivePromotions();
+        
+        // Calculate initial subtotal and collect product IDs for eligibility checks
+        $initialSubtotal = 0;
+        $cartProductIds = [];
+        foreach ($cartItems as $item) {
+            $initialSubtotal += $item['price'] * $item['quantity'];
+            $cartProductIds[] = $item['product_id'];
+        }
+
+        // Filter promotions based on global constraints (min purchase, combo requirements)
+        $eligiblePromotions = $activePromotions->filter(function ($promotion) use ($initialSubtotal, $cartProductIds) {
+            // Check min purchase amount (Global check against initial subtotal)
+            // Note: For product-level promotions, this implies the cart must meet this threshold to activate the per-product discount.
+            if ($promotion->min_purchase_amount > 0 && $initialSubtotal < $promotion->min_purchase_amount) {
+                return false;
+            }
+
+            // Check combo requirements if applicable
+            if ($promotion->promotion_type === 'combo_offer') {
+                // If the promotion specifies specific products, ALL of them must be present in the cart to activate the combo.
+                // If it applies to brands/categories, we'd need more complex logic, but usually combo is specific products.
+                if ($promotion->products->isNotEmpty()) {
+                    $requiredIds = $promotion->products->pluck('id')->toArray();
+                    // Check if all required IDs are present in cartProductIds
+                    if (count(array_diff($requiredIds, $cartProductIds)) > 0) {
+                        return false; // Missing required products for this combo
+                    }
+                }
+            }
+            
+            return true;
+        });
+
         $result = [
             'items' => [],
             'product_discounts' => 0,
@@ -53,10 +86,11 @@ class PromotionService implements PromotionServiceInterface
                 continue;
             }
 
-            $bestPromotion = $this->getBestProductPromotion($product, $activePromotions);
+            // Pass filtered promotions to get the best one for this product
+            $bestPromotion = $this->getBestProductPromotion($product, $eligiblePromotions);
             $discount = 0;
 
-            if ($bestPromotion && $bestPromotion->apply_level === 'product') {
+            if ($bestPromotion) {
                 $discount = $this->calculateDiscountAmount($bestPromotion, $item['price']);
                 $result['product_discounts'] += $discount * $item['quantity'];
             }
@@ -69,11 +103,13 @@ class PromotionService implements PromotionServiceInterface
         }
 
         // Then, check for cart-level promotions (only one applies - non-stacking)
-        $subtotal = collect($result['items'])->sum(fn($item) => $item['discounted_price'] * $item['quantity']);
-        $cartPromotion = $this->getBestCartPromotion($activePromotions, $subtotal);
+        // We use the discounted subtotal as the basis for cart-level discounts
+        $discountedSubtotal = collect($result['items'])->sum(fn($item) => $item['discounted_price'] * $item['quantity']);
+        
+        $cartPromotion = $this->getBestCartPromotion($eligiblePromotions, $discountedSubtotal);
 
         if ($cartPromotion) {
-            $result['cart_discount'] = $this->calculateDiscountAmount($cartPromotion, $subtotal);
+            $result['cart_discount'] = $this->calculateDiscountAmount($cartPromotion, $discountedSubtotal);
             $result['applied_promotion'] = $cartPromotion;
         }
 
@@ -122,6 +158,8 @@ class PromotionService implements PromotionServiceInterface
     public function calculateCartDiscount(array $cartItems, float $subtotal): float
     {
         $activePromotions = $this->getActivePromotions();
+        // Note: This simple method doesn't account for complex combo logic requiring cart inspection.
+        // It assumes standard promotions.
         $cartPromotion = $this->getBestCartPromotion($activePromotions, $subtotal);
 
         if (!$cartPromotion) {
@@ -169,7 +207,8 @@ class PromotionService implements PromotionServiceInterface
             return null;
         }
 
-        // Return highest priority promotion (or best value if same priority)
+        // Return highest priority promotion
+        // If priorities are equal, we could pick the one with higher discount, but priority field should govern this.
         return $applicablePromotions->sortByDesc('priority')->first();
     }
 
@@ -187,7 +226,7 @@ class PromotionService implements PromotionServiceInterface
                 return false;
             }
 
-            // Check minimum purchase amount
+            // Double check minimum purchase amount (though filtered earlier, subtotal might have changed if this is called independently)
             if ($promotion->min_purchase_amount > 0 && $subtotal < $promotion->min_purchase_amount) {
                 return false;
             }
@@ -220,10 +259,14 @@ class PromotionService implements PromotionServiceInterface
                 return $promotion->products->contains('id', $product->id);
 
             case 'specific_brands':
+                // Check if product has brand_id and it matches promotion brands
                 return $product->brand_id && $promotion->brands->contains('id', $product->brand_id);
 
             case 'specific_categories':
-                return $promotion->categories->contains('id', $product->category_id);
+                // Check if product has category_id and it matches promotion categories
+                // Note: If product belongs to a subcategory, logic might need to be recursive, 
+                // but usually the seeder attaches both parent and child categories to the promotion.
+                return $product->category_id && $promotion->categories->contains('id', $product->category_id);
 
             default:
                 return false;
@@ -251,21 +294,24 @@ class PromotionService implements PromotionServiceInterface
                 break;
 
             case 'flash_sale':
+                // Treat flash_sale as percentage discount for consistency with FlashDeal model defaults
+                // and typical ecommerce behavior.
                 $discount = $amount * ($promotion->discount_value / 100);
                 break;
 
             case 'combo_offer':
+                // Combo offer is typically a fixed discount amount
                 $discount = $promotion->discount_value;
                 break;
 
             case 'free_delivery':
-                // Free delivery is handled separately in shipping
+                // Free delivery is handled separately in shipping, doesn't reduce product/cart price directly
                 $discount = 0;
                 break;
         }
 
         // Apply max discount cap if set
-        if ($promotion->max_discount_amount && $discount > $promotion->max_discount_amount) {
+        if ($promotion->max_discount_amount > 0 && $discount > $promotion->max_discount_amount) {
             $discount = $promotion->max_discount_amount;
         }
 

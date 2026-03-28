@@ -19,11 +19,20 @@ class OrderController extends Controller
      */
     public function index(Request $request): JsonResponse
     {
-        $orders = $this->orderService->getOrderHistory($request->user());
+        $perPage = $request->query('per_page', 15);
+        $orders = $this->orderService->getOrderHistoryPaginated($request->user(), (int) $perPage);
 
         return response()->json([
             'success' => true,
-            'data' => $orders,
+            'data' => $orders->items(),
+            'pagination' => [
+                'total' => $orders->total(),
+                'per_page' => $orders->perPage(),
+                'current_page' => $orders->currentPage(),
+                'last_page' => $orders->lastPage(),
+                'from' => $orders->firstItem(),
+                'to' => $orders->lastItem(),
+            ],
         ]);
     }
 

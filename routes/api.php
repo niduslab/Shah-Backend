@@ -60,8 +60,17 @@ Route::get('pages/{slug}', [\App\Http\Controllers\Api\PageController::class, 'sh
 Route::get('pages/type/{type}', [\App\Http\Controllers\Api\PageController::class, 'getByType']);
 Route::get('banners/{position?}', [\App\Http\Controllers\Api\PageController::class, 'banners']);
 
+// Page Content (Public - Frontend)
+Route::prefix('page-content')->group(function () {
+    Route::get('{pageKey}', [\App\Http\Controllers\Api\PageContentController::class, 'getByPageKey']);
+    Route::get('brand/{brandSlug}', [\App\Http\Controllers\Api\PageContentController::class, 'getByBrandSlug']);
+});
+
 // Order Tracking (Public)
 Route::get('orders/{orderNumber}/track', [\App\Http\Controllers\Api\OrderController::class, 'track']);
+
+// Visitor Popup (Public)
+Route::post('visitor-popup', [\App\Http\Controllers\Api\VisitorPopupController::class, 'store']);
 
 // Checkout (Public - supports both guest and authenticated)
 Route::prefix('checkout')->group(function () {
@@ -330,5 +339,25 @@ Route::prefix('admin')->middleware(['auth:sanctum', 'admin'])->group(function ()
         Route::post('mark-all-as-read', [\App\Http\Controllers\Api\Admin\NotificationController::class, 'markAllAsRead']);
         Route::delete('{id}', [\App\Http\Controllers\Api\Admin\NotificationController::class, 'destroy']);
         Route::post('clear', [\App\Http\Controllers\Api\Admin\NotificationController::class, 'clear']);
+    });
+
+    // Page Content Management (Admin)
+    Route::prefix('page-contents')->group(function () {
+        Route::get('/', [\App\Http\Controllers\Api\Admin\PageContentController::class, 'index']);
+        Route::post('/', [\App\Http\Controllers\Api\Admin\PageContentController::class, 'store']);
+        Route::get('{id}', [\App\Http\Controllers\Api\Admin\PageContentController::class, 'show']);
+        Route::put('{id}', [\App\Http\Controllers\Api\Admin\PageContentController::class, 'update']);
+        Route::delete('{id}', [\App\Http\Controllers\Api\Admin\PageContentController::class, 'destroy']);
+        Route::get('page/{pageKey}', [\App\Http\Controllers\Api\Admin\PageContentController::class, 'getByPageKey']);
+        Route::post('sort-order', [\App\Http\Controllers\Api\Admin\PageContentController::class, 'updateSortOrder']);
+    });
+
+    // Visitor Popup Management (Admin)
+    Route::prefix('visitor-popups')->group(function () {
+        Route::get('/', [\App\Http\Controllers\Api\Admin\VisitorPopupController::class, 'index']);
+        Route::get('statistics', [\App\Http\Controllers\Api\Admin\VisitorPopupController::class, 'statistics']);
+        Route::get('export', [\App\Http\Controllers\Api\Admin\VisitorPopupController::class, 'export']);
+        Route::get('{id}', [\App\Http\Controllers\Api\Admin\VisitorPopupController::class, 'show']);
+        Route::delete('{id}', [\App\Http\Controllers\Api\Admin\VisitorPopupController::class, 'destroy']);
     });
 });

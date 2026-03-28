@@ -37,11 +37,19 @@ class BrandSeeder extends Seeder
             ['name' => 'Reebok', 'slug' => 'reebok', 'description' => 'Fitness and lifestyle brand', 'sort_order' => 18],
             ['name' => 'Decathlon', 'slug' => 'decathlon', 'description' => 'French sporting goods retailer', 'sort_order' => 19],
             ['name' => 'Domyos', 'slug' => 'domyos', 'description' => 'Decathlon fitness brand', 'sort_order' => 20],
+            ['name' => 'Shua', 'slug' => 'shua', 'description' => 'Commercial fitness equipment brand', 'sort_order' => 21],
+            ['name' => 'Body Solid', 'slug' => 'body-solid', 'description' => 'American fitness equipment manufacturer', 'sort_order' => 22],
+            ['name' => 'Marcy', 'slug' => 'marcy', 'description' => 'Home and commercial fitness equipment', 'sort_order' => 23],
             
             // Swimming brands
-            ['name' => 'Speedo', 'slug' => 'speedo', 'description' => 'Australian swimwear brand', 'sort_order' => 21],
-            ['name' => 'Arena', 'slug' => 'arena', 'description' => 'Italian swimwear brand', 'sort_order' => 22],
-            ['name' => 'TYR', 'slug' => 'tyr', 'description' => 'American swimwear brand', 'sort_order' => 23],
+            ['name' => 'Speedo', 'slug' => 'speedo', 'description' => 'Australian swimwear brand', 'sort_order' => 24],
+            ['name' => 'Arena', 'slug' => 'arena', 'description' => 'Italian swimwear brand', 'sort_order' => 25],
+            ['name' => 'TYR', 'slug' => 'tyr', 'description' => 'American swimwear brand', 'sort_order' => 26],
+            
+            // Other sports brands
+            ['name' => 'Butterfly', 'slug' => 'butterfly', 'description' => 'Japanese table tennis brand', 'sort_order' => 27],
+            ['name' => 'Spalding', 'slug' => 'spalding', 'description' => 'American basketball equipment brand', 'sort_order' => 28],
+            ['name' => 'Everlast', 'slug' => 'everlast', 'description' => 'American boxing equipment brand', 'sort_order' => 29],
         ];
 
         foreach ($brands as $brand) {

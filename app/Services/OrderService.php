@@ -13,6 +13,7 @@ use App\Services\Contracts\InventoryServiceInterface;
 use App\Services\Contracts\OrderServiceInterface;
 use App\Services\Contracts\PromotionServiceInterface;
 use App\Services\Contracts\ShippingServiceInterface;
+use Illuminate\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
@@ -475,6 +476,13 @@ class OrderService implements OrderServiceInterface
             ->with(['items.product.images', 'items.productVariation'])
             ->orderBy('created_at', 'desc')
             ->get();
+    }
+    public function getOrderHistoryPaginated(User $user, int $perPage = 15): LengthAwarePaginator
+    {
+        return $user->orders()
+            ->with(['items.product.images', 'items.productVariation'])
+            ->orderBy('created_at', 'desc')
+            ->paginate($perPage);
     }
 
     /**

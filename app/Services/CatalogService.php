@@ -252,6 +252,14 @@ class CatalogService implements CatalogServiceInterface
             $query->trending();
         }
 
+        // Filter by preorder
+        if (isset($filters['is_preorder'])) {
+            $isPreorder = filter_var($filters['is_preorder'], FILTER_VALIDATE_BOOLEAN, FILTER_NULL_ON_FAILURE);
+            if ($isPreorder === true) {
+                $query->preorder();
+            }
+        }
+
         // Sorting
         $sortBy = $filters['sort_by'] ?? 'created_at';
         $sortOrder = $filters['sort_order'] ?? 'desc';
