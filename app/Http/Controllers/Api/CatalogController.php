@@ -22,7 +22,11 @@ class CatalogController extends Controller
     {
         $categories = Category::active()
             ->whereNull('parent_id')
-            ->with(['children' => fn($q) => $q->active()])
+            ->with([
+                'children' => fn($q) => $q->active()->orderBy('sort_order'),
+                'children.children' => fn($q) => $q->active()->orderBy('sort_order'),
+                'children.children.children' => fn($q) => $q->active()->orderBy('sort_order'),
+            ])
             ->orderBy('sort_order')
             ->get();
 
@@ -79,6 +83,10 @@ class CatalogController extends Controller
             'search', 'category_id', 'brand_id',
             'min_price', 'max_price', 'in_stock',
             'is_featured', 'is_trending', 'is_preorder',
+            'flash_deal_id', 'has_flash_deal',
+            'promotion_id', 'has_promotion',
+            'coupon_id', 'has_coupon',
+            'has_discount',
             'sort_by', 'sort_order', 'per_page'
         ]);
 
@@ -89,6 +97,23 @@ class CatalogController extends Controller
             'data' => $products,
         ]);
     }
+
+    //  public function products(Request $request): JsonResponse
+    // {
+    //     $filters = $request->only([
+    //         'search', 'category_id', 'brand_id',
+    //         'min_price', 'max_price', 'in_stock',
+    //         'is_featured', 'is_trending', 'is_preorder',
+    //         'sort_by', 'sort_order', 'per_page'
+    //     ]);
+
+    //     $products = $this->catalogService->searchProducts($filters);
+
+    //     return response()->json([
+    //         'success' => true,
+    //         'data' => $products,
+    //     ]);
+    // }
 
     /**
      * Get single product.

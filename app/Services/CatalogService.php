@@ -61,6 +61,7 @@ class CatalogService implements CatalogServiceInterface
                 'shipping_notes' => $data['shipping_notes'] ?? null,
                 'is_featured' => $data['is_featured'] ?? false,
                 'is_trending' => $data['is_trending'] ?? false,
+                'kinomap' => $data['kinomap'] ?? false,
                 'status' => $data['status'] ?? 'draft',
                 'meta_title' => $data['meta_title'] ?? null,
                 'meta_description' => $data['meta_description'] ?? null,
@@ -127,6 +128,7 @@ class CatalogService implements CatalogServiceInterface
                 'shipping_notes' => $data['shipping_notes'] ?? $product->shipping_notes,
                 'is_featured' => $data['is_featured'] ?? $product->is_featured,
                 'is_trending' => $data['is_trending'] ?? $product->is_trending,
+                'kinomap' => $data['kinomap'] ?? $product->kinomap,
                 'status' => $data['status'] ?? $product->status,
                 'meta_title' => $data['meta_title'] ?? $product->meta_title,
                 'meta_description' => $data['meta_description'] ?? $product->meta_description,
@@ -258,6 +260,127 @@ class CatalogService implements CatalogServiceInterface
             if ($isPreorder === true) {
                 $query->preorder();
             }
+        }
+
+        // Filter by flash deal
+        if (!empty($filters['flash_deal_id'])) {
+            $query->whereHas('flashDeals', function ($q) use ($filters) {
+                $q->where('flash_deals.id', $filters['flash_deal_id'])
+                    ->where('flash_deals.is_active', true)
+                    ->where('flash_deals.starts_at', '<=', now())
+                    ->where('flash_deals.ends_at', '>=', now());
+            })->with(['flashDeals' => function ($q) use ($filters) {
+                $q->where('flash_deals.id', $filters['flash_deal_id'])
+                    ->select('flash_deals.*');
+            }]);
+        }
+
+        // Filter by any active flash deal
+        if (isset($filters['has_flash_deal']) && $filters['has_flash_deal']) {
+            $query->whereHas('flashDeals', function ($q) {
+                $q->where('flash_deals.is_active', true)
+                    ->where('flash_deals.starts_at', '<=', now())
+                    ->where('flash_deals.ends_at', '>=', now());
+            })->with(['flashDeals' => function ($q) {
+                $q->where('flash_deals.is_active', true)
+                    ->where('flash_deals.starts_at', '<=', now())
+                    ->where('flash_deals.ends_at', '>=', now())
+                    ->select('flash_deals.*');
+            }]);
+        }
+
+        // Filter by promotion
+        if (!empty($filters['promotion_id'])) {
+            $query->whereHas('promotions', function ($q) use ($filters) {
+                $q->where('promotions.id', $filters['promotion_id'])
+                    ->where('promotions.is_active', true)
+                    ->where('promotions.starts_at', '<=', now())
+                    ->where('promotions.ends_at', '>=', now());
+            })->with(['promotions' => function ($q) use ($filters) {
+                $q->where('promotions.id', $filters['promotion_id'])
+                    ->select('promotions.*');
+            }]);
+        }
+
+        // Filter by any active promotion
+        if (isset($filters['has_promotion']) && $filters['has_promotion']) {
+            $query->whereHas('promotions', function ($q) {
+                $q->where('promotions.is_active', true)
+                    ->where('promotions.starts_at', '<=', now())
+                    ->where('promotions.ends_at', '>=', now());
+            })->with(['promotions' => function ($q) {
+                $q->where('promotions.is_active', true)
+                    ->where('promotions.starts_at', '<=', now())
+                    ->where('promotions.ends_at', '>=', now())
+                    ->select('promotions.*');
+            }]);
+        }
+
+        // Filter by coupon
+        if (!empty($filters['coupon_id'])) {
+            $query->whereHas('coupons', function ($q) use ($filters) {
+                $q->where('coupons.id', $filters['coupon_id'])
+                    ->where('coupons.is_active', true)
+                    ->where(function ($q) {
+                        $q->whereNull('coupons.starts_at')->orWhere('coupons.starts_at', '<=', now());
+                    })
+                    ->where(function ($q) {
+                        $q->whereNull('coupons.expires_at')->orWhere('coupons.expires_at', '>=', now());
+                    });
+            })->with(['coupons' => function ($q) use ($filters) {
+                $q->where('coupons.id', $filters['coupon_id'])
+                    ->select('coupons.*');
+            }]);
+        }
+
+        // Filter by any active coupon
+        if (isset($filters['has_coupon']) && $filters['has_coupon']) {
+            $query->whereHas('coupons', function ($q) {
+                $q->where('coupons.is_active', true)
+                    ->where(function ($q) {
+                        $q->whereNull('coupons.starts_at')->orWhere('coupons.starts_at', '<=', now());
+                    })
+                    ->where(function ($q) {
+                        $q->whereNull('coupons.expires_at')->orWhere('coupons.expires_at', '>=', now());
+                    });
+            })->with(['coupons' => function ($q) {
+                $q->where('coupons.is_active', true)
+                    ->where(function ($q) {
+                        $q->whereNull('coupons.starts_at')->orWhere('coupons.starts_at', '<=', now());
+                    })
+                    ->where(function ($q) {
+                        $q->whereNull('coupons.expires_at')->orWhere('coupons.expires_at', '>=', now());
+                    })
+                    ->select('coupons.*');
+            }]);
+        }
+
+        // Filter by any discount (flash deal, promotion, or coupon)
+        if (isset($filters['has_discount']) && $filters['has_discount']) {
+            $query->where(function ($q) {
+                // Has active flash deal
+                $q->whereHas('flashDeals', function ($q) {
+                    $q->where('flash_deals.is_active', true)
+                        ->where('flash_deals.starts_at', '<=', now())
+                        ->where('flash_deals.ends_at', '>=', now());
+                })
+                // OR has active promotion
+                ->orWhereHas('promotions', function ($q) {
+                    $q->where('promotions.is_active', true)
+                        ->where('promotions.starts_at', '<=', now())
+                        ->where('promotions.ends_at', '>=', now());
+                })
+                // OR has active coupon
+                ->orWhereHas('coupons', function ($q) {
+                    $q->where('coupons.is_active', true)
+                        ->where(function ($q) {
+                            $q->whereNull('coupons.starts_at')->orWhere('coupons.starts_at', '<=', now());
+                        })
+                        ->where(function ($q) {
+                            $q->whereNull('coupons.expires_at')->orWhere('coupons.expires_at', '>=', now());
+                        });
+                });
+            });
         }
 
         // Sorting

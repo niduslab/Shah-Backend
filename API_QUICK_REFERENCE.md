@@ -20,7 +20,7 @@ Authorization: Bearer {token}
 - `GET /catalog/categories/{slug}/products` - Products by category
 - `GET /catalog/brands` - All brands
 - `GET /catalog/brands/{slug}/products` - Products by brand
-- `GET /catalog/products` - Search products
+- `GET /catalog/products` - Search products (supports: search, category_id, brand_id, min_price, max_price, in_stock, is_featured, is_trending, is_preorder, flash_deal_id, has_flash_deal, promotion_id, has_promotion, coupon_id, has_coupon, has_discount)
 - `GET /catalog/products/{slug}` - Product details
 - `GET /catalog/products/featured` - Featured products
 - `GET /catalog/products/trending` - Trending products
@@ -29,6 +29,15 @@ Authorization: Bearer {token}
 - `GET /flash-deals` - Active flash deals
 - `GET /flash-deals/upcoming` - Upcoming deals
 - `GET /flash-deals/{id}` - Deal details
+- `GET /catalog/products?flash_deal_id={id}` - Products in specific flash deal
+- `GET /catalog/products?has_flash_deal=true` - All products with active flash deals
+
+### Promotions & Coupons
+- `GET /catalog/products?promotion_id={id}` - Products in specific promotion
+- `GET /catalog/products?has_promotion=true` - All products with active promotions
+- `GET /catalog/products?coupon_id={id}` - Products eligible for specific coupon
+- `GET /catalog/products?has_coupon=true` - All products with active coupons
+- `GET /catalog/products?has_discount=true` - All products with any discount
 
 ### Cart
 - `POST /cart/summary` - Calculate cart

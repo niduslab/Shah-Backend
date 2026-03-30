@@ -143,101 +143,101 @@ class ProductController extends Controller
      * Update a product.
      */
     public function update(Request $request, int $id): JsonResponse
-        {
-            $product = Product::find($id);
+    {
+        $product = Product::find($id);
 
-            if (!$product) {
-                return response()->json([
-                    'success' => false,
-                    'message' => 'Product not found.',
-                ], 404);
-            }
-
-            // Convert string booleans from form data
-            $this->convertBooleanFields($request);
-
-            $validated = $request->validate([
-                'name' => 'sometimes|string|max:255',
-                'category_id' => 'sometimes|exists:categories,id',
-                'brand_id' => 'nullable|exists:brands,id',
-                'model_id' => 'nullable|exists:product_models,id',
-                'shipping_class_id' => 'nullable|exists:shipping_classes,id',
-                'short_description' => 'nullable|string',
-                'description' => 'nullable|string',
-                'price' => 'sometimes|numeric|min:0',
-                'compare_price' => 'nullable|numeric|min:0',
-                'cost_price' => 'nullable|numeric|min:0',
-                'quantity' => 'nullable|integer|min:0',
-                'low_stock_threshold' => 'nullable|integer|min:0',
-                'weight' => 'nullable|numeric|min:0',
-                'weight_unit' => 'nullable|in:g,kg,lb',
-                'length' => 'nullable|numeric|min:0',
-                'width' => 'nullable|numeric|min:0',
-                'height' => 'nullable|numeric|min:0',
-                'shipping_type' => 'nullable|in:default,free,fixed,per_item',
-                'shipping_cost' => 'nullable|numeric|min:0',
-                'requires_shipping' => 'nullable|boolean',
-                'separate_shipping' => 'nullable|boolean',
-                'shipping_notes' => 'nullable|string|max:500',
-                'is_featured' => 'nullable|boolean',
-                'is_trending' => 'nullable|boolean',
-                'kinomap' => 'nullable|boolean',
-                'status' => 'nullable|in:active,inactive,draft',
-                'meta_title' => 'nullable|string|max:255',
-                'meta_description' => 'nullable|string',
-                'meta_keywords' => 'nullable|string|max:255',
-                'is_preorder' => 'nullable|boolean',
-                'preorder_release_date' => 'nullable|date',
-                'preorder_limit' => 'nullable|integer|min:1',
-                'preorder_deposit_amount' => 'nullable|numeric|min:0',
-                'preorder_deposit_type' => 'nullable|in:percentage,fixed',
-                // Support both file uploads and path strings
-                'images' => 'nullable|array|max:10',
-                'images.*.file' => 'nullable|image|mimes:jpeg,jpg,png,gif,webp|max:5120',
-                'images.*.path' => 'nullable|string|max:500',
-                'images.*.alt_text' => 'nullable|string|max:255',
-                'images.*.is_primary' => 'nullable|boolean',
-                'images.*.sort_order' => 'nullable|integer|min:0',
-                // Variations support
-                'variations' => 'nullable|array',
-                'variations.*.id' => 'nullable|exists:product_variations,id',
-                'variations.*.sku' => 'nullable|string|max:100',
-                'variations.*.price' => 'nullable|numeric|min:0',
-                'variations.*.quantity' => 'nullable|integer|min:0',
-                'variations.*.is_default' => 'nullable|boolean',
-                'variations.*.sort_order' => 'nullable|integer|min:0',
-                'variations.*.shipping_type' => 'nullable|in:inherit,free,fixed,per_item',
-                'variations.*.shipping_cost' => 'nullable|numeric|min:0',
-                // Support both formats: variation_values array or attributes object
-                'variations.*.variation_values' => 'nullable|array',
-                'variations.*.variation_values.*' => 'exists:variation_options,id',
-                'variations.*.attributes' => 'nullable|array',
-                'variations.*.attributes.*' => 'nullable|string|max:255',
-                'variations.*._delete' => 'nullable|boolean',
-                // Support for deleted variation IDs
-                'deleted_variation_ids' => 'nullable|array',
-                'deleted_variation_ids.*' => 'integer|exists:product_variations,id',
-            ]);
-
-            // Handle deleted variations from deleted_variation_ids array
-            if (!empty($validated['deleted_variation_ids'])) {
-                $product->variations()->whereIn('id', $validated['deleted_variation_ids'])->delete();
-                unset($validated['deleted_variation_ids']); // Remove from validated data
-            }
-
-            // Handle file uploads
-            if (!empty($validated['images'])) {
-                $validated['images'] = $this->processImageUploads($validated['images']);
-            }
-
-            $product = $this->catalogService->updateProduct($product, $validated);
-
+        if (!$product) {
             return response()->json([
-                'success' => true,
-                'message' => 'Product updated successfully.',
-                'data' => $product->load(['images' => fn($q) => $q->ordered(), 'variations.variationValues.variationOption.variation']),
-            ]);
+                'success' => false,
+                'message' => 'Product not found.',
+            ], 404);
         }
+
+        // Convert string booleans from form data
+        $this->convertBooleanFields($request);
+
+        $validated = $request->validate([
+            'name' => 'sometimes|string|max:255',
+            'category_id' => 'sometimes|exists:categories,id',
+            'brand_id' => 'nullable|exists:brands,id',
+            'model_id' => 'nullable|exists:product_models,id',
+            'shipping_class_id' => 'nullable|exists:shipping_classes,id',
+            'short_description' => 'nullable|string',
+            'description' => 'nullable|string',
+            'price' => 'sometimes|numeric|min:0',
+            'compare_price' => 'nullable|numeric|min:0',
+            'cost_price' => 'nullable|numeric|min:0',
+            'quantity' => 'nullable|integer|min:0',
+            'low_stock_threshold' => 'nullable|integer|min:0',
+            'weight' => 'nullable|numeric|min:0',
+            'weight_unit' => 'nullable|in:g,kg,lb',
+            'length' => 'nullable|numeric|min:0',
+            'width' => 'nullable|numeric|min:0',
+            'height' => 'nullable|numeric|min:0',
+            'shipping_type' => 'nullable|in:default,free,fixed,per_item',
+            'shipping_cost' => 'nullable|numeric|min:0',
+            'requires_shipping' => 'nullable|boolean',
+            'separate_shipping' => 'nullable|boolean',
+            'shipping_notes' => 'nullable|string|max:500',
+            'is_featured' => 'nullable|boolean',
+            'is_trending' => 'nullable|boolean',
+            'kinomap' => 'nullable|boolean',
+            'status' => 'nullable|in:active,inactive,draft',
+            'meta_title' => 'nullable|string|max:255',
+            'meta_description' => 'nullable|string',
+            'meta_keywords' => 'nullable|string|max:255',
+            'is_preorder' => 'nullable|boolean',
+            'preorder_release_date' => 'nullable|date',
+            'preorder_limit' => 'nullable|integer|min:1',
+            'preorder_deposit_amount' => 'nullable|numeric|min:0',
+            'preorder_deposit_type' => 'nullable|in:percentage,fixed',
+            // Support both file uploads and path strings
+            'images' => 'nullable|array|max:10',
+            'images.*.file' => 'nullable|image|mimes:jpeg,jpg,png,gif,webp|max:5120',
+            'images.*.path' => 'nullable|string|max:500',
+            'images.*.alt_text' => 'nullable|string|max:255',
+            'images.*.is_primary' => 'nullable|boolean',
+            'images.*.sort_order' => 'nullable|integer|min:0',
+            // Variations support
+            'variations' => 'nullable|array',
+            'variations.*.id' => 'nullable|exists:product_variations,id',
+            'variations.*.sku' => 'nullable|string|max:100',
+            'variations.*.price' => 'nullable|numeric|min:0',
+            'variations.*.quantity' => 'nullable|integer|min:0',
+            'variations.*.is_default' => 'nullable|boolean',
+            'variations.*.sort_order' => 'nullable|integer|min:0',
+            'variations.*.shipping_type' => 'nullable|in:inherit,free,fixed,per_item',
+            'variations.*.shipping_cost' => 'nullable|numeric|min:0',
+            // Support both formats: variation_values array or attributes object
+            'variations.*.variation_values' => 'nullable|array',
+            'variations.*.variation_values.*' => 'exists:variation_options,id',
+            'variations.*.attributes' => 'nullable|array',
+            'variations.*.attributes.*' => 'nullable|string|max:255',
+            'variations.*._delete' => 'nullable|boolean',
+            // Support for deleted variation IDs
+            'deleted_variation_ids' => 'nullable|array',
+            'deleted_variation_ids.*' => 'integer|exists:product_variations,id',
+        ]);
+
+        // Handle deleted variations from deleted_variation_ids array
+        if (!empty($validated['deleted_variation_ids'])) {
+            $product->variations()->whereIn('id', $validated['deleted_variation_ids'])->delete();
+            unset($validated['deleted_variation_ids']); // Remove from validated data
+        }
+
+        // Handle file uploads
+        if (!empty($validated['images'])) {
+            $validated['images'] = $this->processImageUploads($validated['images']);
+        }
+
+        $product = $this->catalogService->updateProduct($product, $validated);
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Product updated successfully.',
+            'data' => $product->load(['images' => fn($q) => $q->ordered(), 'variations.variationValues.variationOption.variation']),
+        ]);
+    }
 
 
     /**
