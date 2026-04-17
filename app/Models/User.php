@@ -50,6 +50,14 @@ class User extends Authenticatable implements MustVerifyEmail
     ];
 
     /**
+     * The accessors to append to the model's array form.
+     */
+    protected $appends = [
+        'name',
+        'full_name',
+    ];
+
+    /**
      * Get full name attribute.
      */
     public function getNameAttribute(): string

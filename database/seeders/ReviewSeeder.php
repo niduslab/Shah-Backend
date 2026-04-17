@@ -14,7 +14,23 @@ class ReviewSeeder extends Seeder
     {
         $customers = User::where('user_type', 'customer')->get();
         $products = Product::all();
-        $deliveredOrders = Order::where('status', 'delivered')->get();
+        $orders = Order::all(); // Get all orders, not just delivered ones
+
+        // Check if we have customers and orders
+        if ($customers->isEmpty()) {
+            $this->command->error('No customers found. Please run UserSeeder first.');
+            return;
+        }
+
+        if ($orders->isEmpty()) {
+            $this->command->error('No orders found. Please run OrderSeeder first.');
+            return;
+        }
+
+        if ($products->isEmpty()) {
+            $this->command->error('No products found. Please run ProductSeeder first.');
+            return;
+        }
 
         $reviewTitles = [
             5 => ['Excellent product!', 'Highly recommended!', 'Best purchase ever!', 'Amazing quality!', 'Love it!'],
@@ -64,27 +80,36 @@ class ReviewSeeder extends Seeder
 
         $statuses = ['approved', 'approved', 'approved', 'pending', 'rejected']; // 60% approved
 
-        // Create reviews for random products
-        foreach ($products->random(min(15, $products->count())) as $product) {
-            $reviewCount = rand(1, 4);
+        // Create reviews for ALL products (at least 3 reviews per product)
+        foreach ($products as $product) {
+            $reviewCount = rand(3, 6); // At least 3 reviews, up to 6 per product
             
-            for ($i = 0; $i < $reviewCount; $i++) {
-                $customer = $customers->random();
+            // Get random customers for this product's reviews
+            $selectedCustomers = $customers->random(min($reviewCount, $customers->count()));
+            
+            foreach ($selectedCustomers as $customer) {
                 $rating = $this->weightedRating(); // More 4-5 star reviews
                 $status = $statuses[array_rand($statuses)];
                 
-                // Find a delivered order for this customer (if exists)
-                $order = $deliveredOrders->where('user_id', $customer->id)->first();
+                // Get an order for this customer - prefer delivered orders, but use any if needed
+                $order = $orders->where('user_id', $customer->id)
+                    ->where('status', 'delivered')
+                    ->first();
                 
-                // Skip if no order found for this customer
+                // If no delivered order, use any order from this customer
                 if (!$order) {
-                    continue;
+                    $order = $orders->where('user_id', $customer->id)->first();
+                }
+                
+                // If still no order, use any random order (fallback)
+                if (!$order) {
+                    $order = $orders->random();
                 }
 
                 $review = Review::create([
                     'user_id' => $customer->id,
                     'product_id' => $product->id,
-                    'order_id' => $order->id,
+                    'order_id' => $order->id, // Always has a value now
                     'rating' => $rating,
                     'title' => $reviewTitles[$rating][array_rand($reviewTitles[$rating])],
                     'comment' => $reviewComments[$rating][array_rand($reviewComments[$rating])],
@@ -97,6 +122,8 @@ class ReviewSeeder extends Seeder
                 ]);
             }
         }
+
+        $this->command->info('Reviews seeded successfully for all products!');
     }
 
     /**

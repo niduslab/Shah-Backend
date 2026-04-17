@@ -12,6 +12,23 @@ use Illuminate\Support\Facades\DB;
 class ReviewService implements ReviewServiceInterface
 {
     /**
+     * Verify if user has purchased the product.
+     * 
+     * @param User $user
+     * @param int $productId
+     * @return bool
+     */
+    public function hasPurchasedProduct(User $user, int $productId): bool
+    {
+        return OrderItem::whereHas('order', function ($query) use ($user) {
+            $query->where('user_id', $user->id)
+                ->whereIn('status', ['delivered', 'completed']);
+        })
+            ->where('product_id', $productId)
+            ->exists();
+    }
+
+    /**
      * Create a review with purchase verification.
      * 
      * @param User $user

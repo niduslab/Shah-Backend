@@ -222,4 +222,45 @@ class OrderController extends Controller
             'data' => $order,
         ]);
     }
+
+    /**
+     * Download order invoice.
+     */
+    public function invoice(string $orderNumber)
+    {
+        $order = Order::where('order_number', $orderNumber)
+            ->with('invoice')
+            ->first();
+
+        if (!$order) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Order not found.',
+            ], 404);
+        }
+
+        $invoiceService = app(\App\Services\Contracts\InvoiceServiceInterface::class);
+
+        // If invoice doesn't exist, generate it synchronously for immediate download
+        if (!$order->invoice) {
+            try {
+                $invoice = $invoiceService->generateInvoice($order);
+            } catch (\Exception $e) {
+                \Log::error('Failed to generate invoice', [
+                    'order_number' => $orderNumber,
+                    'error' => $e->getMessage(),
+                ]);
+                
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Failed to generate invoice. Please try again later.',
+                ], 500);
+            }
+        } else {
+            $invoice = $order->invoice;
+        }
+
+        // Download the invoice PDF
+        return $invoiceService->downloadInvoice($invoice);
+    }
 }

@@ -9,6 +9,11 @@ use App\Models\User;
 interface ReviewServiceInterface
 {
     /**
+     * Verify if user has purchased the product.
+     */
+    public function hasPurchasedProduct(User $user, int $productId): bool;
+
+    /**
      * Create a review with purchase verification.
      */
     public function createReview(User $user, Product $product, int $rating, ?string $title = null, ?string $comment = null): Review;

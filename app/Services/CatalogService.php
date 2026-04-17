@@ -203,7 +203,12 @@ class CatalogService implements CatalogServiceInterface
      */
     public function searchProducts(array $filters): LengthAwarePaginator
     {
-        $query = Product::query()->with(['category', 'brand', 'images']);
+        $query = Product::query()->with([
+            'category', 
+            'brand', 
+            'images',
+            'approvedReviews' => fn($q) => $q->latest()->limit(5)
+        ]);
 
         // Only show active products for public queries
         if (!isset($filters['include_inactive']) || !$filters['include_inactive']) {

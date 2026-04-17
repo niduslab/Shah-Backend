@@ -3,23 +3,21 @@
 namespace App\Listeners;
 
 use App\Events\PaymentCompleted;
-use App\Services\Contracts\InvoiceServiceInterface;
+use App\Jobs\GenerateInvoiceJob;
 use Illuminate\Contracts\Queue\ShouldQueue;
 
 class GenerateInvoiceOnPayment implements ShouldQueue
 {
-    public function __construct(
-        protected InvoiceServiceInterface $invoiceService
-    ) {}
-
+    /**
+     * Handle the event.
+     */
     public function handle(PaymentCompleted $event): void
     {
         $order = $event->order;
 
-        // Generate invoice if not already exists
+        // Dispatch job to generate invoice if not already exists
         if (!$order->invoice) {
-            $invoice = $this->invoiceService->generateInvoice($order);
-            $this->invoiceService->sendInvoiceEmail($invoice);
+            GenerateInvoiceJob::dispatch($order);
         }
     }
 }

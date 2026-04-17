@@ -52,6 +52,7 @@ Route::prefix('cart')->group(function () {
 
 // Reviews (Public - Read)
 Route::get('products/{productId}/reviews', [\App\Http\Controllers\Api\ReviewController::class, 'productReviews']);
+Route::get('reviews/product/{productId}', [\App\Http\Controllers\Api\ReviewController::class, 'productReviews']);
 
 // Pages (Public)
 Route::get('policies', [\App\Http\Controllers\Api\PageController::class, 'allPolicies']);
@@ -111,6 +112,7 @@ Route::middleware('auth:sanctum')->group(function () {
     // Reviews
     Route::prefix('reviews')->group(function () {
         Route::get('my-reviews', [\App\Http\Controllers\Api\ReviewController::class, 'myReviews']);
+        Route::get('order/{orderNumber}', [\App\Http\Controllers\Api\ReviewController::class, 'orderReviews']);
         Route::post('/', [\App\Http\Controllers\Api\ReviewController::class, 'store']);
         Route::post('{reviewId}/helpful', [\App\Http\Controllers\Api\ReviewController::class, 'markHelpful']);
     });
@@ -200,6 +202,7 @@ Route::prefix('admin')->middleware(['auth:sanctum', 'admin'])->group(function ()
 
     // Orders
     Route::apiResource('orders', \App\Http\Controllers\Api\Admin\OrderController::class)->only(['index', 'show']);
+    Route::get('orders/{orderNumber}/invoice', [\App\Http\Controllers\Api\Admin\OrderController::class, 'invoice']);
     Route::put('orders/{id}/status', [\App\Http\Controllers\Api\Admin\OrderController::class, 'updateStatus']);
     Route::post('orders/{id}/cancel', [\App\Http\Controllers\Api\Admin\OrderController::class, 'cancel']);
     Route::post('orders/{id}/tracking', [\App\Http\Controllers\Api\Admin\OrderController::class, 'assignTracking']);

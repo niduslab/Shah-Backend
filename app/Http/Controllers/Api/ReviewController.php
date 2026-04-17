@@ -31,12 +31,12 @@ class ReviewController extends Controller
 
         $reviews = Review::where('product_id', $productId)
             ->approved()
-            ->with('user:id,name')
+            ->with('user:id,first_name,last_name,avatar')
             ->orderBy('created_at', 'desc')
             ->paginate(10);
 
         $stats = [
-            'average_rating' => $this->reviewService->calculateAverageRating($productId),
+            'average_rating' => $this->reviewService->calculateAverageRating($product),
             'total_reviews' => Review::where('product_id', $productId)->approved()->count(),
             'rating_distribution' => Review::where('product_id', $productId)
                 ->approved()
@@ -90,7 +90,17 @@ class ReviewController extends Controller
             ], 400);
         }
 
-        $review = $this->reviewService->createReview($user, $validated);
+        // Get the product
+        $product = Product::findOrFail($validated['product_id']);
+
+        // Create the review with individual parameters
+        $review = $this->reviewService->createReview(
+            $user,
+            $product,
+            $validated['rating'],
+            $validated['title'] ?? null,
+            $validated['comment']
+        );
 
         // Notify admins about new review
         app(\App\Services\NotificationService::class)->notifyNewReview($review);
@@ -142,6 +152,70 @@ class ReviewController extends Controller
         return response()->json([
             'success' => true,
             'data' => $reviews,
+        ]);
+    }
+
+    /**
+     * Get reviewable products from an order.
+     */
+    public function orderReviews(Request $request, string $orderNumber): JsonResponse
+    {
+        $user = $request->user();
+
+        // Get the order
+        $order = \App\Models\Order::where('order_number', $orderNumber)
+            ->where('user_id', $user->id)
+            ->with(['items.product.images'])
+            ->first();
+
+        if (!$order) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Order not found.',
+            ], 404);
+        }
+
+        // Check if order is eligible for reviews (delivered or completed)
+        if (!in_array($order->status, ['delivered', 'completed'])) {
+            return response()->json([
+                'success' => false,
+                'message' => 'You can only review products from delivered orders.',
+            ], 400);
+        }
+
+        // Get all products from the order with their review status
+        $products = $order->items->map(function ($item) use ($user) {
+            $existingReview = Review::where('user_id', $user->id)
+                ->where('product_id', $item->product_id)
+                ->first();
+
+            return [
+                'product_id' => $item->product_id,
+                'product_name' => $item->product_name,
+                'product_slug' => $item->product->slug ?? null,
+                'product_image' => $item->product->images->first()?->image_url ?? null,
+                'sku' => $item->sku,
+                'quantity' => $item->quantity,
+                'has_reviewed' => !is_null($existingReview),
+                'review' => $existingReview ? [
+                    'id' => $existingReview->id,
+                    'rating' => $existingReview->rating,
+                    'title' => $existingReview->title,
+                    'comment' => $existingReview->comment,
+                    'status' => $existingReview->status,
+                    'created_at' => $existingReview->created_at,
+                ] : null,
+            ];
+        });
+
+        return response()->json([
+            'success' => true,
+            'data' => [
+                'order_number' => $order->order_number,
+                'order_date' => $order->created_at,
+                'order_status' => $order->status,
+                'products' => $products,
+            ],
         ]);
     }
 }

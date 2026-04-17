@@ -41,10 +41,16 @@ class PromotionService implements PromotionServiceInterface
         // Calculate initial subtotal and collect product IDs for eligibility checks
         $initialSubtotal = 0;
         $cartProductIds = [];
-        foreach ($cartItems as $item) {
-            $initialSubtotal += $item['price'] * $item['quantity'];
+        foreach ($cartItems as &$item) {
+            if (!isset($item['price'])) {
+                $product = Product::find($item['product_id']);
+                $item['price'] = $product ? $product->price : 0;
+            }
+            $quantity = $item['quantity'] ?? 1;
+            $initialSubtotal += $item['price'] * $quantity;
             $cartProductIds[] = $item['product_id'];
         }
+        unset($item);
 
         // Filter promotions based on global constraints (min purchase, combo requirements)
         $eligiblePromotions = $activePromotions->filter(function ($promotion) use ($initialSubtotal, $cartProductIds) {
@@ -78,9 +84,15 @@ class PromotionService implements PromotionServiceInterface
             'applied_promotion' => null,
         ];
 
+        // Track how much discount has been applied per promotion to respect max_discount_amount
+        $promotionDiscountsApplied = [];
+
         // First, apply product-level promotions
         foreach ($cartItems as $item) {
             $product = Product::find($item['product_id']);
+            $price = $item['price'] ?? ($product ? $product->price : 0);
+            $quantity = $item['quantity'] ?? 1;
+
             if (!$product) {
                 $result['items'][] = $item;
                 continue;
@@ -91,13 +103,32 @@ class PromotionService implements PromotionServiceInterface
             $discount = 0;
 
             if ($bestPromotion) {
-                $discount = $this->calculateDiscountAmount($bestPromotion, $item['price']);
-                $result['product_discounts'] += $discount * $item['quantity'];
+                // Calculate raw discount for 1 unit
+                $unitDiscount = $this->calculateDiscountAmount($bestPromotion, $price);
+                $totalItemDiscount = $unitDiscount * $quantity;
+                
+                // Enforce max_discount_amount across all items using this promotion
+                if ($bestPromotion->max_discount_amount > 0) {
+                    $alreadyApplied = $promotionDiscountsApplied[$bestPromotion->id] ?? 0;
+                    $remainingAllowed = max(0, $bestPromotion->max_discount_amount - $alreadyApplied);
+                    
+                    if ($totalItemDiscount > $remainingAllowed) {
+                        $totalItemDiscount = $remainingAllowed;
+                        // Recalculate unit discount (might result in fractional values, so we use total)
+                        $unitDiscount = $quantity > 0 ? $totalItemDiscount / $quantity : 0;
+                    }
+                    
+                    $promotionDiscountsApplied[$bestPromotion->id] = $alreadyApplied + $totalItemDiscount;
+                }
+
+                $discount = $unitDiscount;
+                $result['product_discounts'] += $totalItemDiscount;
             }
 
             $result['items'][] = array_merge($item, [
+                'price' => $price,
                 'discount' => $discount,
-                'discounted_price' => $item['price'] - $discount,
+                'discounted_price' => max(0, $price - $discount),
                 'promotion_id' => $bestPromotion?->id,
             ]);
         }
@@ -223,6 +254,12 @@ class PromotionService implements PromotionServiceInterface
     {
         $cartPromotions = $promotions->filter(function ($promotion) use ($subtotal) {
             if ($promotion->apply_level !== 'cart') {
+                return false;
+            }
+
+            // Exclude free_delivery from cart promotions as it doesn't give a monetary subtotal discount
+            // It is handled separately by hasFreeDeliveryPromotion
+            if ($promotion->promotion_type === 'free_delivery') {
                 return false;
             }
 

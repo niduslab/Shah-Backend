@@ -31,6 +31,16 @@ class ProductController extends Controller
 
         $products = $this->catalogService->searchProducts($filters);
 
+        // Add review statistics to each product
+        $products->getCollection()->transform(function ($product) {
+            $productData = $product->toArray();
+            $productData['review_stats'] = [
+                'average_rating' => round($product->average_rating, 2),
+                'total_reviews' => $product->review_count,
+            ];
+            return $productData;
+        });
+
         return response()->json([
             'success' => true,
             'data' => $products,
@@ -133,9 +143,22 @@ class ProductController extends Controller
             ], 404);
         }
 
+        // Add review statistics
+        $productData = $product->toArray();
+        $productData['review_stats'] = [
+            'average_rating' => round($product->average_rating, 2),
+            'total_reviews' => $product->review_count,
+            'rating_distribution' => $product->approvedReviews()
+                ->selectRaw('rating, COUNT(*) as count')
+                ->groupBy('rating')
+                ->orderBy('rating', 'desc')
+                ->pluck('count', 'rating')
+                ->toArray(),
+        ];
+
         return response()->json([
             'success' => true,
-            'data' => $product,
+            'data' => $productData,
         ]);
     }
 

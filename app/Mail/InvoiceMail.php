@@ -15,8 +15,14 @@ class InvoiceMail extends Mailable
     use Queueable, SerializesModels;
 
     public function __construct(
-        public Invoice $invoice
-    ) {}
+        public Invoice $invoice,
+        public $order = null
+    ) {
+        // Load order if not provided
+        if (!$this->order) {
+            $this->order = $this->invoice->order;
+        }
+    }
 
     public function envelope(): Envelope
     {

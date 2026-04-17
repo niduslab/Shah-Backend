@@ -64,10 +64,30 @@ class UserController extends Controller
         $validated = $request->validate([
             'first_name' => 'sometimes|string|max:255',
             'last_name' => 'sometimes|string|max:255',
+            'email' => 'sometimes|email|max:255|unique:users,email,' . $id,
             'phone' => 'sometimes|nullable|string|max:20',
+            'password' => 'sometimes|nullable|string|min:8',
+            'user_type' => 'sometimes|in:customer,vendor,admin',
+            'status' => 'sometimes|boolean',
         ]);
 
+        // Handle user_type and status separately as they're not in updateProfile
+        $adminFields = [];
+        if (isset($validated['user_type'])) {
+            $adminFields['user_type'] = $validated['user_type'];
+        }
+        if (isset($validated['status'])) {
+            $adminFields['status'] = $validated['status'];
+        }
+
+        // Update profile fields (first_name, last_name, email, phone, password)
         $user = $this->userService->updateProfile($user, $validated);
+
+        // Update admin-specific fields
+        if (!empty($adminFields)) {
+            $user->update($adminFields);
+            $user->refresh();
+        }
 
         return response()->json([
             'success' => true,

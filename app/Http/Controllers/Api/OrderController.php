@@ -129,26 +129,42 @@ class OrderController extends Controller
     /**
      * Download invoice.
      */
-    public function invoice(Request $request, string $orderNumber): JsonResponse
+    public function invoice(Request $request, string $orderNumber)
     {
         $order = Order::where('order_number', $orderNumber)
             ->where('user_id', $request->user()->id)
             ->with('invoice')
             ->first();
 
-        if (!$order || !$order->invoice) {
+        if (!$order) {
             return response()->json([
                 'success' => false,
-                'message' => 'Invoice not found.',
+                'message' => 'Order not found.',
             ], 404);
         }
 
-        return response()->json([
-            'success' => true,
-            'data' => [
-                'invoice_number' => $order->invoice->invoice_number,
-                'pdf_url' => $order->invoice->pdf_path,
-            ],
-        ]);
+        $invoiceService = app(\App\Services\Contracts\InvoiceServiceInterface::class);
+
+        // If invoice doesn't exist, generate it synchronously for immediate download
+        if (!$order->invoice) {
+            try {
+                $invoice = $invoiceService->generateInvoice($order);
+            } catch (\Exception $e) {
+                \Log::error('Failed to generate invoice', [
+                    'order_number' => $orderNumber,
+                    'error' => $e->getMessage(),
+                ]);
+                
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Failed to generate invoice. Please try again later.',
+                ], 500);
+            }
+        } else {
+            $invoice = $order->invoice;
+        }
+
+        // Download the invoice PDF
+        return $invoiceService->downloadInvoice($invoice);
     }
 }

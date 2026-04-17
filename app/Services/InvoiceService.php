@@ -66,17 +66,7 @@ class InvoiceService implements InvoiceServiceInterface
                 $this->regenerateInvoice($invoice);
             }
 
-            Mail::send('emails.invoice', [
-                'invoice' => $invoice,
-                'order' => $order,
-            ], function ($message) use ($email, $invoice, $order) {
-                $message->to($email)
-                    ->subject("Invoice #{$invoice->invoice_number} - Shah Sports")
-                    ->attach(Storage::path($invoice->pdf_path), [
-                        'as' => "invoice-{$invoice->invoice_number}.pdf",
-                        'mime' => 'application/pdf',
-                    ]);
-            });
+            Mail::to($email)->send(new \App\Mail\InvoiceMail($invoice, $order));
 
             return true;
         } catch (\Exception $e) {

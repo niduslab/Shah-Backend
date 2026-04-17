@@ -76,18 +76,29 @@ class CategorySeeder extends Seeder
         */
         $sports = $this->createCategory('Sports', null, 2);
         
-        $sportsItems = [
-            'Cricket',
-            'Football',
+        // INDOOR & INDIVIDUAL (Under Sports)
+        $indoorIndividual = $this->createCategory('Indoor & Individual', $sports->id, 1);
+        $indoorIndividualItems = [
             'Table Tennis',
-            'Hockey',
-            'Basketball',
-            'Boxing',
             'Billiard',
             'Swimming',
+            'Boxing',
+            'Badminton',
+            'Squash'
         ];
-        foreach ($sportsItems as $index => $item) {
-            $this->createCategory($item, $sports->id, $index + 1);
+        foreach ($indoorIndividualItems as $index => $item) {
+            $this->createCategory($item, $indoorIndividual->id, $index + 1);
+        }
+        
+        // Other Sports Categories (Direct under Sports)
+        $otherSportsItems = [
+            'Cricket',
+            'Football',
+            'Hockey',
+            'Basketball',
+        ];
+        foreach ($otherSportsItems as $index => $item) {
+            $this->createCategory($item, $sports->id, $index + 2);
         }
     }
 
