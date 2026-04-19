@@ -43,9 +43,9 @@ class CartController extends Controller
 
             // Check availability
             $available = $this->inventoryService->checkAvailability(
-                $item['product_id'],
-                $item['variation_id'] ?? null,
-                $item['quantity']
+                $product,
+                $item['quantity'],
+                $variation
             );
 
             if (!$available) {
@@ -145,10 +145,15 @@ class CartController extends Controller
             'quantity' => 'required|integer|min:1',
         ]);
 
+        $product = Product::find($validated['product_id']);
+        $variation = isset($validated['variation_id']) 
+            ? ProductVariation::find($validated['variation_id']) 
+            : null;
+
         $available = $this->inventoryService->checkAvailability(
-            $validated['product_id'],
-            $validated['variation_id'] ?? null,
-            $validated['quantity']
+            $product,
+            $validated['quantity'],
+            $variation
         );
 
         return response()->json([
@@ -156,6 +161,48 @@ class CartController extends Controller
             'data' => [
                 'available' => $available,
             ],
+        ]);
+    }
+
+    /**
+     * Get all available valid coupons for public view.
+     */
+    public function getAvailableCoupons(): JsonResponse
+    {
+        $coupons = \App\Models\Coupon::valid()
+            ->select([
+                'id',
+                'code',
+                'name',
+                'description',
+                'discount_type',
+                'discount_value',
+                'min_order_amount',
+                'max_discount_amount',
+                'applies_to',
+                'expires_at',
+            ])
+            ->orderBy('discount_value', 'desc')
+            ->get()
+            ->map(function ($coupon) {
+                return [
+                    'id' => $coupon->id,
+                    'code' => $coupon->code,
+                    'name' => $coupon->name,
+                    'description' => $coupon->description,
+                    'discount_type' => $coupon->discount_type,
+                    'discount_value' => $coupon->discount_value,
+                    'min_order_amount' => $coupon->min_order_amount,
+                    'max_discount_amount' => $coupon->max_discount_amount,
+                    'applies_to' => $coupon->applies_to,
+                    'expires_at' => $coupon->expires_at?->format('Y-m-d H:i:s'),
+                    'is_free_shipping' => $coupon->discount_type === 'free_shipping',
+                ];
+            });
+
+        return response()->json([
+            'success' => true,
+            'data' => $coupons,
         ]);
     }
 }

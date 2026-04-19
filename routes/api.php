@@ -48,6 +48,7 @@ Route::prefix('cart')->group(function () {
     Route::post('summary', [\App\Http\Controllers\Api\CartController::class, 'summary']);
     Route::post('validate-coupon', [\App\Http\Controllers\Api\CartController::class, 'validateCoupon']);
     Route::post('check-availability', [\App\Http\Controllers\Api\CartController::class, 'checkAvailability']);
+    Route::get('available-coupons', [\App\Http\Controllers\Api\CartController::class, 'getAvailableCoupons']);
 });
 
 // Reviews (Public - Read)
@@ -69,9 +70,19 @@ Route::prefix('page-content')->group(function () {
 
 // Order Tracking (Public)
 Route::get('orders/{orderNumber}/track', [\App\Http\Controllers\Api\OrderController::class, 'track']);
+Route::get('orders/{orderNumber}', [\App\Http\Controllers\Api\OrderController::class, 'show']);
 
 // Visitor Popup (Public)
 Route::post('visitor-popup', [\App\Http\Controllers\Api\VisitorPopupController::class, 'store']);
+
+// Analytics Tracking (Public)
+Route::prefix('analytics')->group(function () {
+    Route::post('track/page-view', [\App\Http\Controllers\Api\AnalyticsTrackingController::class, 'trackPageView']);
+    Route::post('track/product-view', [\App\Http\Controllers\Api\AnalyticsTrackingController::class, 'trackProductView']);
+    Route::post('track/cart-event', [\App\Http\Controllers\Api\AnalyticsTrackingController::class, 'trackCartEvent']);
+    Route::post('track/checkout', [\App\Http\Controllers\Api\AnalyticsTrackingController::class, 'trackCheckout']);
+    Route::post('track/search', [\App\Http\Controllers\Api\AnalyticsTrackingController::class, 'trackSearch']);
+});
 
 // Checkout (Public - supports both guest and authenticated)
 Route::prefix('checkout')->group(function () {
@@ -100,7 +111,6 @@ Route::middleware('auth:sanctum')->group(function () {
     // Orders
     Route::prefix('orders')->group(function () {
         Route::get('/', [\App\Http\Controllers\Api\OrderController::class, 'index']);
-        Route::get('{orderNumber}', [\App\Http\Controllers\Api\OrderController::class, 'show']);
         Route::post('{orderNumber}/cancel', [\App\Http\Controllers\Api\OrderController::class, 'cancel']);
         Route::get('{orderNumber}/invoice', [\App\Http\Controllers\Api\OrderController::class, 'invoice']);
     });
@@ -362,5 +372,19 @@ Route::prefix('admin')->middleware(['auth:sanctum', 'admin'])->group(function ()
         Route::get('export', [\App\Http\Controllers\Api\Admin\VisitorPopupController::class, 'export']);
         Route::get('{id}', [\App\Http\Controllers\Api\Admin\VisitorPopupController::class, 'show']);
         Route::delete('{id}', [\App\Http\Controllers\Api\Admin\VisitorPopupController::class, 'destroy']);
+    });
+
+    // Analytics (Admin)
+    Route::prefix('analytics')->group(function () {
+        Route::get('dashboard', [\App\Http\Controllers\Api\Admin\AnalyticsController::class, 'dashboard']);
+        Route::get('visitors', [\App\Http\Controllers\Api\Admin\AnalyticsController::class, 'visitors']);
+        Route::get('visitors/{id}', [\App\Http\Controllers\Api\Admin\AnalyticsController::class, 'visitorDetails']);
+        Route::get('product-views', [\App\Http\Controllers\Api\Admin\AnalyticsController::class, 'productViews']);
+        Route::get('checkout-funnel', [\App\Http\Controllers\Api\Admin\AnalyticsController::class, 'checkoutFunnel']);
+        Route::get('abandoned-carts', [\App\Http\Controllers\Api\Admin\AnalyticsController::class, 'abandonedCarts']);
+        Route::get('cart-events', [\App\Http\Controllers\Api\Admin\AnalyticsController::class, 'cartEvents']);
+        Route::get('search', [\App\Http\Controllers\Api\Admin\AnalyticsController::class, 'searchAnalytics']);
+        Route::get('page-views', [\App\Http\Controllers\Api\Admin\AnalyticsController::class, 'pageViews']);
+        Route::get('export', [\App\Http\Controllers\Api\Admin\AnalyticsController::class, 'export']);
     });
 });

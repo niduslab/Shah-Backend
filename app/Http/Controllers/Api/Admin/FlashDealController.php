@@ -204,27 +204,66 @@ class FlashDealController extends Controller
             'priority' => 'nullable|integer',
             'products' => 'sometimes|array|min:1',
             'products.*.product_id' => 'required_with:products|exists:products,id',
-            'products.*.flash_price' => 'required_with:products|numeric|min:0',
+            'products.*.flash_price' => 'nullable|numeric|min:0',
             'products.*.quantity_limit' => 'nullable|integer|min:1',
         ]);
 
-        $flashDeal->update($validated);
+        DB::beginTransaction();
 
-        if (isset($validated['products'])) {
-            $flashDeal->products()->detach();
-            foreach ($validated['products'] as $productData) {
-                $flashDeal->products()->attach($productData['product_id'], [
-                    'flash_price' => $productData['flash_price'],
-                    'quantity_limit' => $productData['quantity_limit'] ?? null,
-                ]);
+        try {
+            $flashDeal->update($validated);
+
+            if (isset($validated['products'])) {
+                $flashDeal->products()->detach();
+                
+                foreach ($validated['products'] as $productData) {
+                    $flashPrice = $productData['flash_price'] ?? null;
+                    
+                    // Calculate flash price if not provided
+                    if (is_null($flashPrice)) {
+                        $product = Product::find($productData['product_id']);
+                        if ($product) {
+                            $price = $product->price;
+                            $discount = 0;
+
+                            $discountType = $validated['discount_type'] ?? $flashDeal->discount_type;
+                            $discountValue = $validated['discount_value'] ?? $flashDeal->discount_value;
+                            $maxDiscountAmount = $validated['max_discount_amount'] ?? $flashDeal->max_discount_amount;
+
+                            if ($discountType === 'percentage') {
+                                $discount = ($price * $discountValue) / 100;
+                                if ($maxDiscountAmount && $discount > $maxDiscountAmount) {
+                                    $discount = $maxDiscountAmount;
+                                }
+                            } else {
+                                $discount = $discountValue;
+                            }
+
+                            $flashPrice = max(0, $price - $discount);
+                        } else {
+                            continue; // Skip if product not found
+                        }
+                    }
+                    
+                    $flashDeal->products()->attach($productData['product_id'], [
+                        'flash_price' => $flashPrice,
+                        'quantity_limit' => $productData['quantity_limit'] ?? null,
+                    ]);
+                }
             }
-        }
 
-        return response()->json([
-            'success' => true,
-            'message' => 'Flash deal updated successfully.',
-            'data' => $flashDeal->fresh()->load('products'),
-        ]);
+            DB::commit();
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Flash deal updated successfully.',
+                'data' => $flashDeal->fresh()->load('products'),
+            ]);
+
+        } catch (\Exception $e) {
+            DB::rollBack();
+            throw $e;
+        }
     }
 
     public function destroy(int $id): JsonResponse

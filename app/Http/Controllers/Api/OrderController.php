@@ -38,12 +38,18 @@ class OrderController extends Controller
 
     /**
      * Get single order details.
+     * Supports both authenticated and guest users.
      */
     public function show(Request $request, string $orderNumber): JsonResponse
     {
-        $order = Order::where('order_number', $orderNumber)
-            ->where('user_id', $request->user()->id)
-            ->with([
+        $query = Order::where('order_number', $orderNumber);
+        
+        // If user is authenticated, verify ownership
+        if ($request->user()) {
+            $query->where('user_id', $request->user()->id);
+        }
+        
+        $order = $query->with([
                 'items.product.images', 
                 'items.productVariation',
                 'shippingAddress', 

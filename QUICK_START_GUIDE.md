@@ -1,332 +1,217 @@
-# Quick Start Guide - New User Features
+# Analytics System - Quick Start Guide
 
-## Step 1: Run Migrations
+## 🚀 Get Started in 5 Minutes
+
+### Step 1: Install (2 minutes)
 
 ```bash
+# Install dependencies
+composer install
+
+# Run migrations
 php artisan migrate
+
+# Clear cache
+php artisan config:clear && php artisan route:clear
 ```
 
-This will create:
-- `wishlists` table
-- `notifications` table  
-- Add `is_default` column to `addresses` table
+### Step 2: Setup Cron (1 minute)
 
----
-
-## Step 2: Test the Endpoints
-
-### Get User Dashboard
+Add to your crontab:
 ```bash
-curl -X GET http://localhost:8000/api/dashboard \
-  -H "Authorization: Bearer YOUR_TOKEN"
+* * * * * cd /path-to-your-project && php artisan schedule:run >> /dev/null 2>&1
 ```
 
-### Create an Address
+Or run manually:
 ```bash
-curl -X POST http://localhost:8000/api/addresses \
-  -H "Authorization: Bearer YOUR_TOKEN" \
+php artisan analytics:mark-abandoned-checkouts
+```
+
+### Step 3: Test Tracking (2 minutes)
+
+Use Postman or curl to test:
+
+```bash
+# Test product view tracking
+curl -X POST http://your-domain.com/api/analytics/track/product-view \
+  -H "Content-Type: application/json" \
+  -d '{"product_id": 1}'
+
+# Test cart event
+curl -X POST http://your-domain.com/api/analytics/track/cart-event \
   -H "Content-Type: application/json" \
   -d '{
-    "address_line_1": "123 Main Street",
-    "contact_no": "+1234567890",
-    "city": "New York",
-    "state": "NY",
-    "zip_code": "10001",
-    "address_type": "shipping_address",
-    "is_default": true
+    "event_type": "added",
+    "product_id": 1,
+    "quantity": 2,
+    "price": 99.99
+  }'
+
+# Test checkout tracking
+curl -X POST http://your-domain.com/api/analytics/track/checkout \
+  -H "Content-Type: application/json" \
+  -d '{
+    "status": "cart_viewed",
+    "cart_total": 199.98,
+    "items_count": 2
   }'
 ```
 
-### Add Product to Wishlist
+### Step 4: View Dashboard
+
+Access admin dashboard (requires admin authentication):
+```
+GET /api/admin/analytics/dashboard
+```
+
+### Step 5: Integrate Frontend
+
+Add to your product page:
+```javascript
+// Track product view
+fetch('/api/analytics/track/product-view', {
+  method: 'POST',
+  headers: { 'Content-Type': 'application/json' },
+  body: JSON.stringify({ product_id: productId })
+});
+```
+
+Add to your cart:
+```javascript
+// Track add to cart
+fetch('/api/analytics/track/cart-event', {
+  method: 'POST',
+  headers: { 'Content-Type': 'application/json' },
+  body: JSON.stringify({
+    event_type: 'added',
+    product_id: productId,
+    quantity: quantity,
+    price: price
+  })
+});
+```
+
+Add to your checkout:
+```javascript
+// Track checkout stages
+fetch('/api/analytics/track/checkout', {
+  method: 'POST',
+  headers: { 'Content-Type': 'application/json' },
+  body: JSON.stringify({
+    status: 'checkout_initiated',
+    cart_items: cartItems,
+    cart_total: total,
+    items_count: cartItems.length
+  })
+});
+```
+
+## ✅ Done!
+
+Your analytics system is now tracking:
+- ✅ Visitor sessions
+- ✅ Page views
+- ✅ Product views
+- ✅ Cart events
+- ✅ Checkout funnel
+- ✅ Search queries
+
+## 📊 View Your Data
+
+### Check Database
+```sql
+-- View recent sessions
+SELECT * FROM visitor_sessions ORDER BY created_at DESC LIMIT 10;
+
+-- View product views
+SELECT * FROM product_views ORDER BY created_at DESC LIMIT 10;
+
+-- View abandoned carts
+SELECT * FROM checkout_funnels WHERE status = 'abandoned' ORDER BY abandoned_at DESC;
+```
+
+### Use Admin API
 ```bash
-curl -X POST http://localhost:8000/api/wishlist \
-  -H "Authorization: Bearer YOUR_TOKEN" \
-  -H "Content-Type: application/json" \
-  -d '{"product_id": 1}'
+# Get dashboard overview
+GET /api/admin/analytics/dashboard
+
+# Get abandoned carts
+GET /api/admin/analytics/abandoned-carts?min_value=100
+
+# Get product performance
+GET /api/admin/analytics/product-views?sort_by=conversions
+
+# Export data
+GET /api/admin/analytics/export?type=checkouts
 ```
 
-### Get Wishlist
-```bash
-curl -X GET http://localhost:8000/api/wishlist \
-  -H "Authorization: Bearer YOUR_TOKEN"
+## 🎯 Common Tasks
+
+### Find High-Value Abandoned Carts
 ```
+GET /api/admin/analytics/abandoned-carts?min_value=200&date_from=2024-01-01
+```
+
+### See Most Viewed Products
+```
+GET /api/admin/analytics/product-views?sort_by=views&per_page=20
+```
+
+### Check Conversion Rates
+```
+GET /api/admin/analytics/dashboard
+```
+Look for `checkout_funnel.conversion_rate`
+
+### Find Problem Products
+```
+GET /api/admin/analytics/product-views?sort_by=views
+```
+Look for high views + low conversions
+
+### See What Customers Search For
+```
+GET /api/admin/analytics/search
+```
+
+### Identify Missing Products
+```
+GET /api/admin/analytics/search?no_results=true
+```
+
+## 📚 Need More Help?
+
+- **Getting Started**: Read `ANALYTICS_SYSTEM_README.md`
+- **Admin Guide**: Read `ADMIN_ANALYTICS_QUICK_GUIDE.md`
+- **Integration**: Read `ANALYTICS_INTEGRATION_EXAMPLES.md`
+- **Visual Guide**: Read `ANALYTICS_VISUAL_SUMMARY.md`
+- **Full Docs**: Read `ANALYTICS_SYSTEM_DOCUMENTATION.md`
+
+## 🐛 Troubleshooting
+
+### Not tracking?
+1. Check migrations ran: `php artisan migrate:status`
+2. Check routes exist: `php artisan route:list | grep analytics`
+3. Check database tables exist
+4. Check browser console for errors
+
+### No abandoned carts?
+1. Check cron is running: `php artisan schedule:list`
+2. Manually run: `php artisan analytics:mark-abandoned-checkouts`
+3. Check visitor_sessions table has data
+
+### Empty dashboard?
+1. Generate some test data using the curl commands above
+2. Check date range in query parameters
+3. Verify admin authentication is working
+
+## 🎉 You're All Set!
+
+Start tracking your e-commerce success today!
 
 ---
 
-## Step 3: Available Routes
-
-### User Dashboard
-- `GET /api/dashboard` - Dashboard statistics
-- `GET /api/profile` - User profile with addresses
-
-### Address Management
-- `GET /api/addresses` - List all addresses
-- `POST /api/addresses` - Create new address
-- `GET /api/addresses/{id}` - Get single address
-- `PUT /api/addresses/{id}` - Update address
-- `DELETE /api/addresses/{id}` - Delete address
-- `POST /api/addresses/{id}/set-default` - Set as default
-
-### Wishlist
-- `GET /api/wishlist` - Get wishlist
-- `POST /api/wishlist` - Add to wishlist
-- `DELETE /api/wishlist/{id}` - Remove from wishlist
-- `DELETE /api/wishlist/product/{productId}` - Remove by product ID
-- `GET /api/wishlist/check/{productId}` - Check if in wishlist
-- `POST /api/wishlist/clear` - Clear entire wishlist
-
-### Notifications
-- `GET /api/notifications` - List notifications
-- `GET /api/notifications/unread-count` - Get unread count
-- `POST /api/notifications/{id}/mark-as-read` - Mark as read
-- `POST /api/notifications/mark-all-as-read` - Mark all as read
-- `DELETE /api/notifications/{id}` - Delete notification
-- `POST /api/notifications/clear` - Clear all notifications
-
----
-
-## Step 4: Frontend Integration Examples
-
-### React/Vue - Dashboard Component
-```javascript
-// Fetch dashboard data
-const fetchDashboard = async () => {
-  const response = await fetch('/api/dashboard', {
-    headers: {
-      'Authorization': `Bearer ${token}`,
-      'Accept': 'application/json'
-    }
-  });
-  const data = await response.json();
-  return data.data;
-};
-```
-
-### React/Vue - Wishlist Toggle
-```javascript
-// Add to wishlist
-const addToWishlist = async (productId) => {
-  const response = await fetch('/api/wishlist', {
-    method: 'POST',
-    headers: {
-      'Authorization': `Bearer ${token}`,
-      'Content-Type': 'application/json'
-    },
-    body: JSON.stringify({ product_id: productId })
-  });
-  return await response.json();
-};
-
-// Check if in wishlist
-const checkWishlist = async (productId) => {
-  const response = await fetch(`/api/wishlist/check/${productId}`, {
-    headers: {
-      'Authorization': `Bearer ${token}`
-    }
-  });
-  const data = await response.json();
-  return data.data.in_wishlist;
-};
-```
-
-### React/Vue - Address Management
-```javascript
-// Get all addresses
-const fetchAddresses = async () => {
-  const response = await fetch('/api/addresses', {
-    headers: {
-      'Authorization': `Bearer ${token}`
-    }
-  });
-  const data = await response.json();
-  return data.data;
-};
-
-// Set default address
-const setDefaultAddress = async (addressId) => {
-  const response = await fetch(`/api/addresses/${addressId}/set-default`, {
-    method: 'POST',
-    headers: {
-      'Authorization': `Bearer ${token}`
-    }
-  });
-  return await response.json();
-};
-```
-
----
-
-## Step 5: Common Use Cases
-
-### Display User Dashboard Stats
-```javascript
-const DashboardStats = () => {
-  const [stats, setStats] = useState(null);
-  
-  useEffect(() => {
-    fetchDashboard().then(data => {
-      setStats(data.statistics);
-    });
-  }, []);
-  
-  return (
-    <div className="dashboard-stats">
-      <StatCard title="Total Orders" value={stats?.total_orders} />
-      <StatCard title="Total Spent" value={`$${stats?.total_spent}`} />
-      <StatCard title="Wishlist Items" value={stats?.wishlist_count} />
-      <StatCard title="Pending Reviews" value={stats?.pending_reviews} />
-    </div>
-  );
-};
-```
-
-### Wishlist Heart Icon
-```javascript
-const WishlistButton = ({ productId }) => {
-  const [inWishlist, setInWishlist] = useState(false);
-  
-  useEffect(() => {
-    checkWishlist(productId).then(setInWishlist);
-  }, [productId]);
-  
-  const toggleWishlist = async () => {
-    if (inWishlist) {
-      await removeFromWishlist(productId);
-      setInWishlist(false);
-    } else {
-      await addToWishlist(productId);
-      setInWishlist(true);
-    }
-  };
-  
-  return (
-    <button onClick={toggleWishlist}>
-      {inWishlist ? '❤️' : '🤍'}
-    </button>
-  );
-};
-```
-
-### Address Selector
-```javascript
-const AddressSelector = ({ onSelect }) => {
-  const [addresses, setAddresses] = useState([]);
-  
-  useEffect(() => {
-    fetchAddresses().then(setAddresses);
-  }, []);
-  
-  return (
-    <select onChange={(e) => onSelect(e.target.value)}>
-      {addresses.map(addr => (
-        <option key={addr.id} value={addr.id}>
-          {addr.address_line_1}, {addr.city} {addr.is_default && '(Default)'}
-        </option>
-      ))}
-    </select>
-  );
-};
-```
-
----
-
-## Step 6: Error Handling
-
-All endpoints return consistent error responses:
-
-```json
-{
-  "success": false,
-  "message": "Error description"
-}
-```
-
-Handle errors in your frontend:
-
-```javascript
-const handleApiCall = async (apiFunction) => {
-  try {
-    const response = await apiFunction();
-    if (!response.success) {
-      showError(response.message);
-      return null;
-    }
-    return response.data;
-  } catch (error) {
-    showError('Network error occurred');
-    return null;
-  }
-};
-```
-
----
-
-## Step 7: Testing Checklist
-
-- [ ] User can view dashboard statistics
-- [ ] User can create shipping address
-- [ ] User can create billing address
-- [ ] User can set default address
-- [ ] User can update address
-- [ ] User can delete unused address
-- [ ] User can add product to wishlist
-- [ ] User can remove product from wishlist
-- [ ] User can view wishlist with product details
-- [ ] User can clear entire wishlist
-- [ ] User can view notifications
-- [ ] User can mark notifications as read
-- [ ] User can delete notifications
-- [ ] Dashboard shows correct order counts
-- [ ] Dashboard shows correct total spent
-- [ ] Recent orders display correctly
-
----
-
-## Troubleshooting
-
-### Issue: Routes not found
-**Solution:** Clear route cache
-```bash
-php artisan route:clear
-php artisan route:cache
-```
-
-### Issue: Migrations fail
-**Solution:** Check database connection and rollback if needed
-```bash
-php artisan migrate:rollback
-php artisan migrate
-```
-
-### Issue: 401 Unauthorized
-**Solution:** Ensure Bearer token is valid and included in headers
-```javascript
-headers: {
-  'Authorization': `Bearer ${token}`
-}
-```
-
-### Issue: Cannot delete address
-**Solution:** Address is used in orders. This is by design for data integrity.
-
-### Issue: Duplicate wishlist entry
-**Solution:** Check if product already exists before adding. Use the check endpoint.
-
----
-
-## Next Steps
-
-1. ✅ Run migrations
-2. ✅ Test endpoints with Postman
-3. ⬜ Build frontend components
-4. ⬜ Add notification types
-5. ⬜ Implement real-time notifications
-6. ⬜ Add wishlist sharing
-7. ⬜ Add address validation
-
----
-
-## Support
-
-For detailed API documentation, see `API_DOCUMENTATION.md`
-For implementation details, see `IMPLEMENTATION_SUMMARY.md`
+**Quick Links:**
+- Main README: `ANALYTICS_SYSTEM_README.md`
+- Admin Guide: `ADMIN_ANALYTICS_QUICK_GUIDE.md`
+- Integration Examples: `ANALYTICS_INTEGRATION_EXAMPLES.md`

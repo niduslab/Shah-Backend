@@ -215,7 +215,7 @@ class CouponService implements CouponServiceInterface
     protected function couponAppliesToCart(Coupon $coupon, array $cartItems): bool
     {
         // If applies to all, always valid
-        if ($coupon->applies_to === 'all') {
+        if ($coupon->applies_to === 'all_products') {
             return true;
         }
 
@@ -244,34 +244,20 @@ class CouponService implements CouponServiceInterface
     protected function couponAppliesToProduct(Coupon $coupon, Product $product): bool
     {
         // If applies to all, always valid
-        if ($coupon->applies_to === 'all') {
+        if ($coupon->applies_to === 'all_products') {
             return true;
         }
 
-        // Get the types this coupon applies to
-        $appliesTo = explode(',', $coupon->applies_to);
-        
-        // Check each type
-        foreach ($appliesTo as $type) {
-            switch (trim($type)) {
-                case 'products':
-                    if ($coupon->products->contains('id', $product->id)) {
-                        return true;
-                    }
-                    break;
+        // Check specific application types
+        switch ($coupon->applies_to) {
+            case 'specific_products':
+                return $coupon->products->contains('id', $product->id);
 
-                case 'brands':
-                    if ($product->brand_id && $coupon->brands->contains('id', $product->brand_id)) {
-                        return true;
-                    }
-                    break;
+            case 'specific_brands':
+                return $product->brand_id && $coupon->brands->contains('id', $product->brand_id);
 
-                case 'categories':
-                    if ($coupon->categories->contains('id', $product->category_id)) {
-                        return true;
-                    }
-                    break;
-            }
+            case 'specific_categories':
+                return $coupon->categories->contains('id', $product->category_id);
         }
 
         return false;
@@ -288,7 +274,7 @@ class CouponService implements CouponServiceInterface
     protected function calculateEligibleAmount(Coupon $coupon, array $cartItems, float $subtotal): float
     {
         // If applies to all, entire subtotal is eligible
-        if ($coupon->applies_to === 'all') {
+        if ($coupon->applies_to === 'all_products') {
             return $subtotal;
         }
 
@@ -301,7 +287,16 @@ class CouponService implements CouponServiceInterface
             }
 
             if ($this->couponAppliesToProduct($coupon, $product)) {
-                $eligibleAmount += $item['price'] * $item['quantity'];
+                // Get price from variation if exists, otherwise from product
+                $price = 0;
+                if (!empty($item['variation_id'])) {
+                    $variation = $product->variations()->find($item['variation_id']);
+                    $price = $variation ? $variation->price : $product->price;
+                } else {
+                    $price = $product->price;
+                }
+                
+                $eligibleAmount += $price * $item['quantity'];
             }
         }
 

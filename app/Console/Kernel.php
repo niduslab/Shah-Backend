@@ -17,6 +17,9 @@ class Kernel extends ConsoleKernel
         
         // Clean up expired OTPs daily
         $schedule->command('otp:cleanup')->daily();
+        
+        // Mark abandoned checkouts every 10 minutes
+        $schedule->command('analytics:mark-abandoned-checkouts')->everyTenMinutes();
     }
 
     /**
