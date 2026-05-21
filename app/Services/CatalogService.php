@@ -226,13 +226,22 @@ class CatalogService implements CatalogServiceInterface
             });
         }
 
-        // Filter by category
-        if (!empty($filters['category_id'])) {
+        // Filter by category slug (resolves to ID + all subcategory IDs)
+        if (!empty($filters['category_slug'])) {
+            $category = Category::where('slug', $filters['category_slug'])->first();
+            if ($category) {
+                $categoryIds = array_merge([$category->id], $this->getSubcategoryIds($category->id));
+                $query->whereIn('category_id', $categoryIds);
+            }
+        } elseif (!empty($filters['category_id'])) {
+            // Legacy numeric ID support
             $query->where('category_id', $filters['category_id']);
         }
 
         // Filter by brand
-        if (!empty($filters['brand_id'])) {
+        if (!empty($filters['brand_slug'])) {
+            $query->whereHas('brand', fn($q) => $q->where('slug', $filters['brand_slug']));
+        } elseif (!empty($filters['brand_id'])) {
             $query->where('brand_id', $filters['brand_id']);
         }
 
@@ -649,7 +658,27 @@ class CatalogService implements CatalogServiceInterface
                     $existingVariationIds[] = $variation->id;
                 } else {
                     // Variation ID doesn't belong to this product, treat as new
-                    $sku = $variationData['sku'] ?? $this->generateVariationSku($product, $index + 1);
+                    // Check if SKU is provided and if it's duplicate, auto-generate
+                    $sku = null;
+                    if (!empty($variationData['sku'])) {
+                        // Check if SKU already exists
+                        if (\App\Models\ProductVariation::where('sku', $variationData['sku'])->exists()) {
+                            // SKU is duplicate, auto-generate unique one
+                            $sku = $this->generateVariationSku($product, $index + 1);
+                            \Log::info('Variation SKU duplicate detected, auto-generated new SKU', [
+                                'original_sku' => $variationData['sku'],
+                                'generated_sku' => $sku,
+                                'product_id' => $product->id
+                            ]);
+                        } else {
+                            // SKU is unique, use it
+                            $sku = $variationData['sku'];
+                        }
+                    } else {
+                        // No SKU provided, auto-generate
+                        $sku = $this->generateVariationSku($product, $index + 1);
+                    }
+                    
                     $isDefault = $variationData['is_default'] ?? ($index === 0 && $product->variations()->count() === 0);
 
                     $variation = $product->variations()->create([
@@ -673,7 +702,27 @@ class CatalogService implements CatalogServiceInterface
                 }
             } else {
                 // Create new variation
-                $sku = $variationData['sku'] ?? $this->generateVariationSku($product, $index + 1);
+                // Check if SKU is provided and if it's duplicate, auto-generate
+                $sku = null;
+                if (!empty($variationData['sku'])) {
+                    // Check if SKU already exists
+                    if (\App\Models\ProductVariation::where('sku', $variationData['sku'])->exists()) {
+                        // SKU is duplicate, auto-generate unique one
+                        $sku = $this->generateVariationSku($product, $index + 1);
+                        \Log::info('Variation SKU duplicate detected, auto-generated new SKU', [
+                            'original_sku' => $variationData['sku'],
+                            'generated_sku' => $sku,
+                            'product_id' => $product->id
+                        ]);
+                    } else {
+                        // SKU is unique, use it
+                        $sku = $variationData['sku'];
+                    }
+                } else {
+                    // No SKU provided, auto-generate
+                    $sku = $this->generateVariationSku($product, $index + 1);
+                }
+                
                 $isDefault = $variationData['is_default'] ?? ($index === 0 && $product->variations()->count() === 0);
 
                 $variation = $product->variations()->create([

@@ -145,13 +145,36 @@ class ReviewController extends Controller
     public function myReviews(Request $request): JsonResponse
     {
         $reviews = Review::where('user_id', $request->user()->id)
-            ->with('product:id,name,slug')
+            ->with(['product:id,name,slug', 'product.images'])
             ->orderBy('created_at', 'desc')
             ->paginate(10);
 
         return response()->json([
             'success' => true,
             'data' => $reviews,
+        ]);
+    }
+
+    /**
+     * Get all reviewable items across all delivered/completed orders.
+     */
+    public function reviewableItems(Request $request): JsonResponse
+    {
+        $user = $request->user();
+
+        $reviewedProductIds = Review::where('user_id', $user->id)->pluck('product_id');
+
+        $items = \App\Models\OrderItem::whereHas('order', function ($q) use ($user) {
+                $q->where('user_id', $user->id)
+                  ->whereIn('status', ['delivered', 'completed']);
+            })
+            ->whereNotIn('product_id', $reviewedProductIds)
+            ->with(['product.images', 'order:id,order_number'])
+            ->get();
+
+        return response()->json([
+            'success' => true,
+            'data' => $items,
         ]);
     }
 

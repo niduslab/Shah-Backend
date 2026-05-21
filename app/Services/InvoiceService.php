@@ -86,7 +86,7 @@ class InvoiceService implements InvoiceServiceInterface
      */
     public function regenerateInvoice(Invoice $invoice): Invoice
     {
-        $order = $invoice->order->load(['items.product', 'user', 'shippingAddress']);
+        $order = $invoice->order->load(['items.product', 'items.productVariation.variationValues.variationOption.variation', 'user', 'shippingAddress']);
         
         // Delete old PDF if exists
         if ($invoice->pdf_path && Storage::exists($invoice->pdf_path)) {
@@ -109,7 +109,7 @@ class InvoiceService implements InvoiceServiceInterface
     public function getInvoiceByNumber(string $invoiceNumber): ?Invoice
     {
         return Invoice::where('invoice_number', $invoiceNumber)
-            ->with(['order.items.product', 'order.user'])
+            ->with(['order.items.product', 'order.items.productVariation.variationValues.variationOption.variation', 'order.user'])
             ->first();
     }
 
@@ -148,7 +148,7 @@ class InvoiceService implements InvoiceServiceInterface
      */
     protected function generatePdf(Invoice $invoice, Order $order): string
     {
-        $order->load(['items.product', 'user', 'shippingAddress']);
+        $order->load(['items.product', 'items.productVariation.variationValues.variationOption.variation', 'user', 'shippingAddress']);
 
         $data = [
             'invoice' => $invoice,

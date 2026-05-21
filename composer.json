@@ -13,6 +13,7 @@
         "laravel/sanctum": "^3.3",
         "laravel/socialite": "^5.24",
         "laravel/tinker": "^2.8",
+        "league/csv": "^9.28",
         "nyholm/psr7": "^1.8",
         "openai-php/client": "^0.10.1",
         "php-flasher/flasher-notyf-laravel": "^1.15",

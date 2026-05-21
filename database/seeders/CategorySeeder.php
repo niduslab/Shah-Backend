@@ -100,6 +100,34 @@ class CategorySeeder extends Seeder
         foreach ($otherSportsItems as $index => $item) {
             $this->createCategory($item, $sports->id, $index + 2);
         }
+
+        /*
+        |--------------------------------------------------------------------------
+        | FLOOR SOLUTIONS
+        |--------------------------------------------------------------------------
+        */
+        $floorSolutions = $this->createCategory('Floor Solutions', null, 3);
+        
+        // FLOOR MATS (Under Floor Solutions)
+        $floorMats = $this->createCategory('Floor Mats', $floorSolutions->id, 1);
+        $floorMatsItems = [
+            'Gym Floor Mats',
+            'Rubber Floor Mats',
+            'Yoga & Pilates Mats'
+        ];
+        foreach ($floorMatsItems as $index => $item) {
+            $this->createCategory($item, $floorMats->id, $index + 1);
+        }
+        
+        // FLOORING SOLUTIONS (Under Floor Solutions)
+        $flooringSolutions = $this->createCategory('Flooring Solutions', $floorSolutions->id, 2);
+        $flooringSolutionsItems = [
+            'Sports Court Flooring',
+            'Artificial Turf'
+        ];
+        foreach ($flooringSolutionsItems as $index => $item) {
+            $this->createCategory($item, $flooringSolutions->id, $index + 1);
+        }
     }
 
     /**

@@ -122,6 +122,7 @@ Route::middleware('auth:sanctum')->group(function () {
     // Reviews
     Route::prefix('reviews')->group(function () {
         Route::get('my-reviews', [\App\Http\Controllers\Api\ReviewController::class, 'myReviews']);
+        Route::get('reviewable-items', [\App\Http\Controllers\Api\ReviewController::class, 'reviewableItems']);
         Route::get('order/{orderNumber}', [\App\Http\Controllers\Api\ReviewController::class, 'orderReviews']);
         Route::post('/', [\App\Http\Controllers\Api\ReviewController::class, 'store']);
         Route::post('{reviewId}/helpful', [\App\Http\Controllers\Api\ReviewController::class, 'markHelpful']);
@@ -181,6 +182,18 @@ Route::prefix('admin')->middleware(['auth:sanctum', 'admin'])->group(function ()
     // Categories
     Route::get('categories/tree', [\App\Http\Controllers\Api\Admin\CategoryController::class, 'tree']);
     Route::apiResource('categories', \App\Http\Controllers\Api\Admin\CategoryController::class);
+
+    // Product Bulk Import (MUST be before apiResource to avoid route conflicts)
+    Route::prefix('products/import')->group(function () {
+        Route::get('template', [\App\Http\Controllers\Api\Admin\ProductImportController::class, 'template']);
+        Route::post('upload', [\App\Http\Controllers\Api\Admin\ProductImportController::class, 'upload']);
+        Route::get('/', [\App\Http\Controllers\Api\Admin\ProductImportController::class, 'index']);
+        Route::get('{id}', [\App\Http\Controllers\Api\Admin\ProductImportController::class, 'status']);
+        Route::get('{id}/errors', [\App\Http\Controllers\Api\Admin\ProductImportController::class, 'errors']);
+        Route::get('{id}/export-errors', [\App\Http\Controllers\Api\Admin\ProductImportController::class, 'exportErrors']);
+        Route::post('{id}/cancel', [\App\Http\Controllers\Api\Admin\ProductImportController::class, 'cancel']);
+        Route::delete('{id}', [\App\Http\Controllers\Api\Admin\ProductImportController::class, 'destroy']);
+    });
 
     // Products
     Route::apiResource('products', \App\Http\Controllers\Api\Admin\ProductController::class);

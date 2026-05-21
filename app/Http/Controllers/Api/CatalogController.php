@@ -80,7 +80,7 @@ class CatalogController extends Controller
     public function products(Request $request): JsonResponse
     {
         $filters = $request->only([
-            'search', 'category_id', 'brand_id',
+            'search', 'category_id', 'category_slug', 'brand_id', 'brand_slug',
             'min_price', 'max_price', 'in_stock',
             'is_featured', 'is_trending', 'is_preorder',
             'flash_deal_id', 'has_flash_deal',

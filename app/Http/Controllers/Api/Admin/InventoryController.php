@@ -21,7 +21,7 @@ class InventoryController extends Controller
      */
     public function index(Request $request): JsonResponse
     {
-        $query = Product::with(['variations', 'category', 'brand'])
+        $query = Product::with(['variations.variationValues.variationOption.variation', 'images', 'category', 'brand'])
             ->select('products.*');
 
         if ($request->filled('search')) {
@@ -150,7 +150,7 @@ class InventoryController extends Controller
      */
     public function show(int $productId): JsonResponse
     {
-        $product = Product::with(['variations', 'category', 'brand'])->find($productId);
+        $product = Product::with(['variations.variationValues.variationOption.variation', 'category', 'brand'])->find($productId);
 
         if (!$product) {
             return response()->json([
