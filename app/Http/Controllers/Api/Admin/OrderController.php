@@ -45,7 +45,16 @@ class OrderController extends Controller
                 $q->where('order_number', 'like', "%{$search}%")
                   ->orWhere('customer_name', 'like', "%{$search}%")
                   ->orWhere('customer_email', 'like', "%{$search}%")
-                  ->orWhereHas('user', fn($q) => $q->where('name', 'like', "%{$search}%"));
+                  ->orWhere('customer_phone', 'like', "%{$search}%")
+                  ->orWhereHas('user', fn($q) => $q
+                      ->where('first_name', 'like', "%{$search}%")
+                      ->orWhere('last_name', 'like', "%{$search}%")
+                      ->orWhere('email', 'like', "%{$search}%")
+                  );
+
+                if (is_numeric($search)) {
+                    $q->orWhere('id', (int) $search);
+                }
             });
         }
 

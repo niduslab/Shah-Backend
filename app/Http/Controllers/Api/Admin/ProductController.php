@@ -91,6 +91,7 @@ class ProductController extends Controller
             'preorder_limit' => 'nullable|integer|min:1',
             'preorder_deposit_amount' => 'nullable|numeric|min:0',
             'preorder_deposit_type' => 'nullable|in:percentage,fixed',
+            'country_of_origin' => 'nullable|string|max:100',
             // Support both file uploads and path strings
             'images' => 'nullable|array|max:10',
             'images.*.file' => 'nullable|image|mimes:jpeg,jpg,png,gif,webp|max:5120',
@@ -214,6 +215,7 @@ class ProductController extends Controller
             'preorder_limit' => 'nullable|integer|min:1',
             'preorder_deposit_amount' => 'nullable|numeric|min:0',
             'preorder_deposit_type' => 'nullable|in:percentage,fixed',
+            'country_of_origin' => 'nullable|string|max:100',
             // Support both file uploads and path strings
             'images' => 'nullable|array|max:10',
             'images.*.file' => 'nullable|image|mimes:jpeg,jpg,png,gif,webp|max:5120',

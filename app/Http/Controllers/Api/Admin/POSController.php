@@ -8,8 +8,10 @@ use App\Models\ProductVariation;
 use App\Services\Contracts\InventoryServiceInterface;
 use App\Services\Contracts\OrderServiceInterface;
 use App\Services\Contracts\PaymentServiceInterface;
+use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Http\Response;
 
 class POSController extends Controller
 {
@@ -241,5 +243,79 @@ class POSController extends Controller
                 'total' => $total,
             ],
         ]);
+    }
+
+    /**
+     * Generate a quotation PDF without creating an order.
+     */
+    public function generateQuotation(Request $request): Response
+    {
+        $validated = $request->validate([
+            'customer_name'  => 'required|string|max:255',
+            'customer_email' => 'nullable|email|max:255',
+            'customer_phone' => 'nullable|string|max:20',
+            'items'          => 'required|array|min:1',
+            'items.*.product_id'  => 'required|exists:products,id',
+            'items.*.variation_id' => 'nullable|exists:product_variations,id',
+            'items.*.quantity'    => 'required|integer|min:1',
+            'discount'       => 'nullable|numeric|min:0|max:100',
+            'notes'          => 'nullable|string',
+        ]);
+
+        $subtotal = 0;
+        $lineItems = [];
+
+        foreach ($validated['items'] as $item) {
+            $product  = Product::find($item['product_id']);
+            $variation = isset($item['variation_id']) ? ProductVariation::find($item['variation_id']) : null;
+            $price     = (float) ($variation?->price ?? $product->price);
+            $lineTotal = $price * $item['quantity'];
+            $subtotal += $lineTotal;
+
+            $lineItems[] = [
+                'name'       => $product->name,
+                'sku'        => $variation?->sku ?? $product->sku,
+                'quantity'   => $item['quantity'],
+                'unit_price' => $price,
+                'total'      => $lineTotal,
+            ];
+        }
+
+        $discountPercent = (float) ($validated['discount'] ?? 0);
+        $discountAmount  = ($subtotal * $discountPercent) / 100;
+        $total           = max(0, $subtotal - $discountAmount);
+
+        $quotationNumber = 'QT-' . date('Ymd') . '-' . strtoupper(substr(uniqid(), -5));
+        $date            = now()->format('M d, Y');
+        $validUntil      = now()->addDays(30)->format('M d, Y');
+
+        $company = [
+            'name'    => config('app.company_name', config('app.name')),
+            'address' => config('app.company_address', ''),
+            'phone'   => config('app.company_phone', ''),
+            'email'   => config('app.company_email', config('mail.from.address', '')),
+        ];
+
+        $pdf = Pdf::loadView('pdf.quotation', [
+            'quotation_number' => $quotationNumber,
+            'date'             => $date,
+            'valid_until'      => $validUntil,
+            'company'          => $company,
+            'customer'         => [
+                'name'  => $validated['customer_name'],
+                'email' => $validated['customer_email'] ?? '',
+                'phone' => $validated['customer_phone'] ?? '',
+            ],
+            'items'            => $lineItems,
+            'subtotal'         => $subtotal,
+            'discount_percent' => $discountPercent,
+            'discount_amount'  => $discountAmount,
+            'total'            => $total,
+            'notes'            => $validated['notes'] ?? '',
+        ])->setPaper('a4');
+
+        $filename = 'quotation-' . $quotationNumber . '.pdf';
+
+        return $pdf->download($filename);
     }
 }

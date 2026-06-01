@@ -47,6 +47,7 @@ class Product extends Model
         'preorder_deposit_amount',
         'preorder_deposit_type',
         'kinomap',
+        'country_of_origin',
     ];
 
     protected $casts = [

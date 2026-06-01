@@ -237,6 +237,7 @@ Route::prefix('admin')->middleware(['auth:sanctum', 'admin'])->group(function ()
         Route::get('products/search', [\App\Http\Controllers\Api\Admin\POSController::class, 'searchProducts']);
         Route::get('products/sku/{sku}', [\App\Http\Controllers\Api\Admin\POSController::class, 'getProductBySku']);
         Route::post('calculate', [\App\Http\Controllers\Api\Admin\POSController::class, 'calculateTotals']);
+        Route::post('quotation', [\App\Http\Controllers\Api\Admin\POSController::class, 'generateQuotation']);
     });
 
     // Promotions

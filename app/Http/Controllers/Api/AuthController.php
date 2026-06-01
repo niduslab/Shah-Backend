@@ -115,6 +115,8 @@ class AuthController extends Controller
             'phone' => 'nullable|string|max:20',
             'date_of_birth' => 'nullable|date|before:today',
             'gender' => 'nullable|in:male,female,other',
+            'weight' => 'nullable|numeric|min:0|max:999.99',
+            'height' => 'nullable|numeric|min:0|max:999.99',
         ]);
 
         $user = $request->user();

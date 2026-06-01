@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Api\Admin;
 
 use App\Http\Controllers\Controller;
+use App\Models\CartEvent;
 use App\Services\Contracts\UserServiceInterface;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -28,9 +29,9 @@ class UserController extends Controller
     }
 
     /**
-     * Get a specific customer.
+     * Get a specific customer with paginated orders, wishlist, and abandoned cart.
      */
-    public function show(int $id): JsonResponse
+    public function show(Request $request, int $id): JsonResponse
     {
         $user = $this->userService->findById($id);
 
@@ -41,9 +42,56 @@ class UserController extends Controller
             ], 404);
         }
 
+        $user->load(['addresses']);
+
+        $perPage = (int) $request->input('per_page', 10);
+
+        // Paginated orders
+        $orders = $user->orders()
+            ->orderBy('created_at', 'desc')
+            ->paginate($perPage, ['*'], 'orders_page');
+
+        // Paginated wishlist
+        $wishlist = $user->wishlists()
+            ->with(['product.images'])
+            ->orderBy('created_at', 'desc')
+            ->paginate($perPage, ['*'], 'wishlist_page');
+
+        // Paginated abandoned cart: added products not subsequently removed
+        $removedProductIds = CartEvent::where('user_id', $id)
+            ->where('event_type', 'removed')
+            ->pluck('product_id')
+            ->unique();
+
+        $abandonedCart = CartEvent::where('user_id', $id)
+            ->where('event_type', 'added')
+            ->whereNotIn('product_id', $removedProductIds)
+            ->with(['product.images'])
+            ->latest('event_at')
+            ->get()
+            ->unique('product_id')
+            ->values();
+
+        // Manual pagination for abandoned cart (already deduplicated in memory)
+        $cartPage    = (int) $request->input('cart_page', 1);
+        $cartTotal   = $abandonedCart->count();
+        $cartSlice   = $abandonedCart->slice(($cartPage - 1) * $perPage, $perPage)->values();
+
         return response()->json([
             'success' => true,
-            'data' => $user->load(['addresses', 'orders']),
+            'data' => array_merge($user->toArray(), [
+                'orders'         => $orders,
+                'wishlist'       => $wishlist,
+                'abandoned_cart' => [
+                    'data'         => $cartSlice,
+                    'total'        => $cartTotal,
+                    'per_page'     => $perPage,
+                    'current_page' => $cartPage,
+                    'last_page'    => (int) ceil($cartTotal / $perPage) ?: 1,
+                    'from'         => $cartTotal ? ($cartPage - 1) * $perPage + 1 : 0,
+                    'to'           => min($cartPage * $perPage, $cartTotal),
+                ],
+            ]),
         ]);
     }
 
