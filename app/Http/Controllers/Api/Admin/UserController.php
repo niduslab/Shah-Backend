@@ -4,9 +4,11 @@ namespace App\Http\Controllers\Api\Admin;
 
 use App\Http\Controllers\Controller;
 use App\Models\CartEvent;
+use App\Models\User;
 use App\Services\Contracts\UserServiceInterface;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Hash;
 
 class UserController extends Controller
 {
@@ -92,6 +94,62 @@ class UserController extends Controller
                     'to'           => min($cartPage * $perPage, $cartTotal),
                 ],
             ]),
+        ]);
+    }
+
+    /**
+     * Create a new user (admin-initiated).
+     */
+    public function store(Request $request): JsonResponse
+    {
+        $validated = $request->validate([
+            'first_name' => 'required|string|max:255',
+            'last_name'  => 'required|string|max:255',
+            'email'      => 'required|email|unique:users,email',
+            'phone'      => 'nullable|string|max:20',
+            'password'   => 'required|string|min:8',
+            'user_type'  => 'sometimes|in:customer,vendor,admin',
+            'status'     => 'sometimes|boolean',
+        ]);
+
+        $user = User::create([
+            'first_name' => $validated['first_name'],
+            'last_name'  => $validated['last_name'],
+            'email'      => $validated['email'],
+            'phone'      => $validated['phone'] ?? null,
+            'password'   => Hash::make($validated['password']),
+            'user_type'  => $validated['user_type'] ?? 'customer',
+            'status'     => $validated['status'] ?? true,
+        ]);
+
+        return response()->json([
+            'success' => true,
+            'message' => 'User created successfully.',
+            'data'    => $user,
+        ], 201);
+    }
+
+    /**
+     * Toggle a user's active status.
+     */
+    public function toggleStatus(int $id): JsonResponse
+    {
+        $user = $this->userService->findById($id);
+
+        if (!$user) {
+            return response()->json([
+                'success' => false,
+                'message' => 'User not found.',
+            ], 404);
+        }
+
+        $user->update(['status' => !$user->status]);
+        $user->refresh();
+
+        return response()->json([
+            'success' => true,
+            'message' => 'User status updated.',
+            'data'    => $user,
         ]);
     }
 
