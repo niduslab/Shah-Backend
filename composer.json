@@ -18,7 +18,7 @@
         "nyholm/psr7": "^1.8",
         "openai-php/client": "^0.10.1",
         "php-flasher/flasher-notyf-laravel": "^1.15",
-        "predis/predis": "*",
+        "predis/predis": "^3.5",
         "pusher/pusher-php-server": "^7.2",
         "shippo/shippo-php": "^2.0",
         "stripe/stripe-php": "^15.4",
