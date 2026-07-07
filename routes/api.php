@@ -75,6 +75,9 @@ Route::get('orders/{orderNumber}', [\App\Http\Controllers\Api\OrderController::c
 // Visitor Popup (Public)
 Route::post('visitor-popup', [\App\Http\Controllers\Api\VisitorPopupController::class, 'store']);
 
+// Contact Message (Public)
+Route::post('contact-messages', [\App\Http\Controllers\Api\ContactMessageController::class, 'store']);
+
 // Analytics Tracking (Public)
 Route::prefix('analytics')->group(function () {
     Route::post('track/page-view', [\App\Http\Controllers\Api\AnalyticsTrackingController::class, 'trackPageView']);
@@ -386,6 +389,15 @@ Route::prefix('admin')->middleware(['auth:sanctum', 'admin'])->group(function ()
         Route::get('export', [\App\Http\Controllers\Api\Admin\VisitorPopupController::class, 'export']);
         Route::get('{id}', [\App\Http\Controllers\Api\Admin\VisitorPopupController::class, 'show']);
         Route::delete('{id}', [\App\Http\Controllers\Api\Admin\VisitorPopupController::class, 'destroy']);
+    });
+
+    // Contact Message Management (Admin)
+    Route::prefix('contact-messages')->group(function () {
+        Route::get('/', [\App\Http\Controllers\Api\Admin\ContactMessageController::class, 'index']);
+        Route::get('statistics', [\App\Http\Controllers\Api\Admin\ContactMessageController::class, 'statistics']);
+        Route::get('{id}', [\App\Http\Controllers\Api\Admin\ContactMessageController::class, 'show']);
+        Route::put('{id}/status', [\App\Http\Controllers\Api\Admin\ContactMessageController::class, 'updateStatus']);
+        Route::delete('{id}', [\App\Http\Controllers\Api\Admin\ContactMessageController::class, 'destroy']);
     });
 
     // Analytics (Admin)
