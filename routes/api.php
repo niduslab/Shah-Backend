@@ -78,6 +78,9 @@ Route::post('visitor-popup', [\App\Http\Controllers\Api\VisitorPopupController::
 // Contact Message (Public)
 Route::post('contact-messages', [\App\Http\Controllers\Api\ContactMessageController::class, 'store']);
 
+// Newsletter Subscription (Public)
+Route::post('newsletter/subscribe', [\App\Http\Controllers\Api\NewsletterSubscriberController::class, 'store']);
+
 // Analytics Tracking (Public)
 Route::prefix('analytics')->group(function () {
     Route::post('track/page-view', [\App\Http\Controllers\Api\AnalyticsTrackingController::class, 'trackPageView']);
