@@ -130,7 +130,7 @@
         let vendorWallet = user.wallet[0] || [];
 
         let balance = document.getElementById('balance');
-        balance.textContent = vendorWallet.balance ? `$${vendorWallet.balance}` : "$0.00";
+        balance.textContent = vendorWallet.balance ? `৳${vendorWallet.balance}` : "৳0.00";
 
         if(vendorWallet.account_connected){
             $('#not-connected').addClass('d-none');
@@ -143,7 +143,7 @@
             let row = `<tr>
                 <td>${payout.id}</td>
                 <td>${payout.vendor_id}</td>
-                <td>$${payout.amount}</td>
+                <td>৳${payout.amount}</td>
                 <td>
                     <span class="badge bg-${payout.status === 'paid' ? 'success' : payout.status === 'approved' ? 'info' : 'warning'}">
                         ${payout.status.charAt(0).toUpperCase() + payout.status.slice(1)}
@@ -164,7 +164,7 @@
                 <td>${transaction.id}</td>
                 <td>${transaction.vendor_id}</td>
                 <td>${transaction.order_id}</td>
-                <td>$${transaction.amount}</td>
+                <td>৳${transaction.amount}</td>
                 <td><span class="badge bg-info">${transaction.transaction_type}</span></td>
                 <td>${formattedDate}</td>
             </tr>`;
@@ -195,7 +195,7 @@
 
             vendorPayouts.push(newPayout);
             // vendorWallet.balance -= amount;
-            // balance.textContent = `$${vendorWallet.balance.toFixed(2)}`;
+            // balance.textContent = `৳${vendorWallet.balance.toFixed(2)}`;
 
             // Make an AJAX request to the server to handle the payout request
         fetch('{{ route("vendor.request.payout") }}', {
@@ -210,14 +210,14 @@
         .then(data => {
             if (data.success) {
                 vendorWallet.balance -= amount;
-                balance.textContent = `$${vendorWallet.balance.toFixed(2)}`;
+                balance.textContent = `৳${vendorWallet.balance.toFixed(2)}`;
 
                 // Update Payouts Table
                 let newPayout = data.payout;
                 let row = `<tr>
                     <td>${newPayout.id}</td>
                     <td>${newPayout.vendor_id}</td>
-                    <td>$${newPayout.amount}</td>
+                    <td>৳${newPayout.amount}</td>
                     <td><span class="badge bg-warning">requested</span></td>
                     <td>${newPayout.requested_at}</td>
                     <td></td>

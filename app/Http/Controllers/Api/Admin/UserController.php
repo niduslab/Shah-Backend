@@ -21,7 +21,7 @@ class UserController extends Controller
      */
     public function index(Request $request): JsonResponse
     {
-        $filters = $request->only(['status', 'search', 'verified', 'sort_by', 'sort_order', 'per_page']);
+        $filters = $request->only(['status', 'user_type', 'search', 'verified', 'sort_by', 'sort_order', 'per_page']);
         $customers = $this->userService->getCustomers($filters);
 
         return response()->json([
@@ -199,6 +199,36 @@ class UserController extends Controller
             'success' => true,
             'message' => 'Customer updated successfully.',
             'data' => $user,
+        ]);
+    }
+
+    /**
+     * Permanently delete a user.
+     */
+    public function destroy(Request $request, int $id): JsonResponse
+    {
+        $user = $this->userService->findById($id);
+
+        if (!$user) {
+            return response()->json([
+                'success' => false,
+                'message' => 'User not found.',
+            ], 404);
+        }
+
+        if ($request->user()->id === $user->id) {
+            return response()->json([
+                'success' => false,
+                'message' => 'You cannot delete your own account.',
+            ], 400);
+        }
+
+        $user->tokens()->delete();
+        $user->delete();
+
+        return response()->json([
+            'success' => true,
+            'message' => 'User deleted successfully.',
         ]);
     }
 

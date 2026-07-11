@@ -20,7 +20,7 @@
                     </span>
                     <div class="text">
                         <h6 class="mb-1 card-title">Revenue</h6>
-                        <span>${{ number_format($totalSalesRevenue, 2) }}</span>
+                        <span>৳{{ number_format($totalSalesRevenue, 2) }}</span>
                         <span class="text-sm"> Shipping fees not included </span>
                     </div>
                 </article>
@@ -68,7 +68,7 @@
                     </span>
                     <div class="text">
                         <h6 class="mb-1 card-title">Avg. Purchase Value</h6>
-                        <span>${{ number_format($averagePurchaseValue, 2) }}</span>
+                        <span>৳{{ number_format($averagePurchaseValue, 2) }}</span>
                         <span class="text-sm"> Based on local time. </span>
                     </div>
                 </article>

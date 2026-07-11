@@ -17,7 +17,7 @@
         <!-- Admin Wallet Balance -->
         <div class="card mb-4 shadow-sm">
             <div class="card-body">
-                <h4 class="card-title">Admin Wallet Balance: <span class="text-primary">${{ $adminWallet->balance }}</span></h4>
+                <h4 class="card-title">Admin Wallet Balance: <span class="text-primary">৳{{ $adminWallet->balance }}</span></h4>
             </div>
         </div>
 

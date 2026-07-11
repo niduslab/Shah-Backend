@@ -240,10 +240,14 @@ class UserService implements UserServiceInterface
      */
     public function getCustomers(array $filters = []): LengthAwarePaginator
     {
-        $query = User::customers();
+        $query = User::query();
+
+        if (!empty($filters['user_type'])) {
+            $query->where('user_type', $filters['user_type']);
+        }
 
         if (isset($filters['status'])) {
-            $query->where('status', $filters['status']);
+            $query->where('status', filter_var($filters['status'], FILTER_VALIDATE_BOOLEAN));
         }
 
         if (isset($filters['search'])) {
