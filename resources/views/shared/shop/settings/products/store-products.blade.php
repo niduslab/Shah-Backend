@@ -347,7 +347,7 @@ function createFileList(files) {
                                 // Add the price to the price tag span
                                 const priceTag = optionCheckbox.closest('.variation-value-tag').querySelector('.price-tag');
                                 if (priceTag) {
-                                    priceTag.textContent = `$${option.price}`; // Add price to span
+                                    priceTag.textContent = `৳${option.price}`; // Add price to span
                                     console.log(`Added price for ${option.option}: $${option.price}`);
                                 }
                             }
@@ -771,7 +771,7 @@ function createFileList(files) {
                         const priceTag = optionDiv.querySelector('.price-tag');
 
                         // Update price tag
-                        priceTag.textContent = `Price: $${parseFloat(price).toFixed(2)}`;
+                        priceTag.textContent = `Price: ৳${parseFloat(price).toFixed(2)}`;
                         document.getElementById('variationOptionPopup').style.display = 'none';
                         $('#variationOptionForm').trigger("reset");
                     });

@@ -14,10 +14,15 @@ class NotificationController extends Controller
     public function index(Request $request): JsonResponse
     {
         $perPage = $request->get('per_page', 20);
-        
-        $notifications = $request->user()
-            ->notifications()
-            ->paginate($perPage);
+
+        $query = $request->user()->notifications();
+
+        if ($request->has('read')) {
+            $isRead = filter_var($request->get('read'), FILTER_VALIDATE_BOOLEAN);
+            $isRead ? $query->whereNotNull('read_at') : $query->whereNull('read_at');
+        }
+
+        $notifications = $query->paginate($perPage);
 
         return response()->json([
             'success' => true,

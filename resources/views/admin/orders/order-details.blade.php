@@ -151,9 +151,9 @@
                                                 <div class="info">{{ $item->product->product_name }}</div>
                                             </a>
                                         </td>
-                                        <td>${{ number_format($item->price, 2) }}</td>
+                                        <td>৳{{ number_format($item->price, 2) }}</td>
                                         <td>{{ $item->quantity }}</td>
-                                        <td class="text-end">${{ number_format($item->price * $item->quantity, 2) }}</td>
+                                        <td class="text-end">৳{{ number_format($item->price * $item->quantity, 2) }}</td>
                                     </tr>
                                 @endforeach
                                 <tr>
@@ -161,15 +161,15 @@
                                         <article class="float-end">
                                             <dl class="dlist">
                                                 <dt>Subtotal:</dt>
-                                                <dd>${{ number_format($orderDetails->subtotal, 2) }}</dd>
+                                                <dd>৳{{ number_format($orderDetails->subtotal, 2) }}</dd>
                                             </dl>
                                             <dl class="dlist">
                                                 <dt>Shipping cost:</dt>
-                                                <dd>${{ number_format($orderDetails->shipping_cost, 2) }}</dd>
+                                                <dd>৳{{ number_format($orderDetails->shipping_cost, 2) }}</dd>
                                             </dl>
                                             <dl class="dlist">
                                                 <dt>Grand total:</dt>
-                                                <dd><b class="h5">${{ number_format($orderDetails->total_amount, 2) }}</b></dd>
+                                                <dd><b class="h5">৳{{ number_format($orderDetails->total_amount, 2) }}</b></dd>
                                             </dl>
                                             <dl class="dlist">
                                                 <dt class="text-muted">Status:</dt>

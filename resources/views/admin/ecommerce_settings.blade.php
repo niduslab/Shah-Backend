@@ -21,7 +21,7 @@
                     <div class="form-group mb-4">
                         <label for="currency">Currency:</label>
                         <select id="currency" name="currency" class="form-control">
-                            <option value="USD" {{ old('currency', $settings->currency ?? '') == 'USD' ? 'selected' : '' }}>USD</option>
+                            <option value="BDT" {{ old('currency', $settings->currency ?? '') == 'BDT' ? 'selected' : '' }}>BDT</option>
                             <!-- Add more options as needed -->
                         </select>
                         @error('currency')
@@ -32,7 +32,7 @@
                     <div class="form-group mb-4">
                         <label for="currency_symbol">Currency Symbol:</label>
                         <select id="currency_symbol" name="currency_symbol" class="form-control">
-                            <option value="$" {{ old('currency_symbol', $settings->currency_symbol ?? '') == '$' ? 'selected' : '' }}>$</option>
+                            <option value="৳" {{ old('currency_symbol', $settings->currency_symbol ?? '') == '৳' ? 'selected' : '' }}>৳</option>
                             <!-- Add more options as needed -->
                         </select>
                         @error('currency_symbol')

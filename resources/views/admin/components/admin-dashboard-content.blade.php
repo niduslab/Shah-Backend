@@ -15,7 +15,7 @@
                     <span class="icon icon-sm rounded-circle bg-primary-light"><i class="text-primary material-icons md-monetization_on"></i></span>
                     <div class="text">
                         <h6 class="mb-1 card-title">Revenue</h6>
-                        <span>${{ number_format($totalSalesRevenue, 2) }}</span>
+                        <span>৳{{ number_format($totalSalesRevenue, 2) }}</span>
                         <span class="text-sm"> Shipping fees are not included </span>
                     </div>
                 </article>
@@ -51,7 +51,7 @@
                     <span class="icon icon-sm rounded-circle bg-info-light"><i class="text-info material-icons md-shopping_basket"></i></span>
                     <div class="text">
                         <h6 class="mb-1 card-title">Monthly Earning</h6>
-                        <span>${{ number_format($averageOrderValue, 2) }}</span>
+                        <span>৳{{ number_format($averageOrderValue, 2) }}</span>
                         <span class="text-sm"> Based on your local time. </span>
                     </div>
                 </article>

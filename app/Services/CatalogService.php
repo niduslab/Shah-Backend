@@ -217,6 +217,11 @@ class CatalogService implements CatalogServiceInterface
             $query->active();
         }
 
+        // Filter by exact status (admin use)
+        if (!empty($filters['status'])) {
+            $query->where('status', $filters['status']);
+        }
+
         // Search by keyword
         if (!empty($filters['search'])) {
             $search = $filters['search'];
