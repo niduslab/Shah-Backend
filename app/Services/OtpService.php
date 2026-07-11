@@ -43,7 +43,7 @@ class OtpService
 
         // Send OTP via email
         try {
-            Mail::to($email)->send(new OtpMail($otp));
+            Mail::to($email)->queue(new OtpMail($otp));
         } catch (\Exception $e) {
             \Log::error('Failed to send OTP email: ' . $e->getMessage());
             return [
@@ -87,7 +87,7 @@ class OtpService
 
         // Send OTP via email
         try {
-            Mail::to($email)->send(new OtpMail($otp, 'registration'));
+            Mail::to($email)->queue(new OtpMail($otp, 'registration'));
         } catch (\Exception $e) {
             \Log::error('Failed to send registration OTP email: ' . $e->getMessage());
             return [
