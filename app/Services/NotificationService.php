@@ -35,6 +35,9 @@ class NotificationService
     {
         if ($order->user) {
             $order->user->notify(new OrderConfirmedNotification($order));
+        } elseif ($order->customer_email) {
+            Notification::route('mail', $order->customer_email)
+                ->notify(new OrderConfirmedNotification($order));
         }
     }
 
@@ -60,6 +63,9 @@ class NotificationService
     {
         if ($order->user) {
             $order->user->notify(new OrderStatusChangedNotification($order, $oldStatus, $newStatus));
+        } elseif ($order->customer_email) {
+            Notification::route('mail', $order->customer_email)
+                ->notify(new OrderStatusChangedNotification($order, $oldStatus, $newStatus));
         }
     }
 

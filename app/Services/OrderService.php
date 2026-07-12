@@ -435,8 +435,6 @@ class OrderService implements OrderServiceInterface
     {
         $order->update(['status' => $status]);
 
-        // TODO: Dispatch OrderStatusChanged event for email notification
-
         return $order->fresh();
     }
 

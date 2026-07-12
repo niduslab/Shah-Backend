@@ -2,6 +2,7 @@
 
 namespace App\Notifications;
 
+use App\Mail\OrderConfirmation;
 use App\Models\Order;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
@@ -21,7 +22,13 @@ class OrderConfirmedNotification extends Notification implements ShouldQueue
 
     public function via($notifiable)
     {
-        return ['database', 'broadcast'];
+        return ['mail', 'database', 'broadcast'];
+    }
+
+    public function toMail($notifiable)
+    {
+        return (new OrderConfirmation($this->order))
+            ->to($this->order->customer_email ?? $notifiable->email);
     }
 
     public function toArray($notifiable)

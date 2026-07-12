@@ -25,9 +25,47 @@ class PaymentService implements PaymentServiceInterface
         $this->sslStoreId = config('services.sslcommerz.store_id', '');
         $this->sslStorePassword = config('services.sslcommerz.store_password', '');
         $this->sslSandbox = config('services.sslcommerz.sandbox', true);
-        $this->sslBaseUrl = $this->sslSandbox 
-            ? 'https://sandbox.sslcommerz.com' 
+        $this->sslBaseUrl = $this->sslSandbox
+            ? 'https://sandbox.sslcommerz.com'
             : 'https://securepay.sslcommerz.com';
+    }
+
+    /**
+     * Verify a transaction directly with SSLCommerz's validation API.
+     * The IPN/success payload alone must never be trusted for marking an
+     * order paid, since it can be spoofed by a POST from anyone.
+     */
+    protected function verifySslTransaction(array $data): ?array
+    {
+        $valId = $data['val_id'] ?? null;
+
+        if (!$valId) {
+            return null;
+        }
+
+        try {
+            $response = Http::get("{$this->sslBaseUrl}/validator/api/validationserverAPI.php", [
+                'val_id' => $valId,
+                'store_id' => $this->sslStoreId,
+                'store_passwd' => $this->sslStorePassword,
+                'format' => 'json',
+            ]);
+
+            $result = $response->json();
+
+            if (!$response->successful() || !isset($result['status'])) {
+                return null;
+            }
+
+            if (!in_array(strtoupper($result['status']), ['VALID', 'VALIDATED'])) {
+                return null;
+            }
+
+            return $result;
+        } catch (\Exception $e) {
+            Log::error('SSL Commerz validation API call failed', ['error' => $e->getMessage()]);
+            return null;
+        }
     }
 
     /**
@@ -146,7 +184,7 @@ class PaymentService implements PaymentServiceInterface
             }
             
             $payment = $this->getPaymentByTransactionId($transactionId);
-            
+
             if (!$payment) {
                 return [
                     'success' => false,
@@ -155,6 +193,27 @@ class PaymentService implements PaymentServiceInterface
             }
 
             $status = $this->mapGatewayStatus($data['status'] ?? 'FAILED');
+
+            // Never trust the callback body alone for a completed payment —
+            // confirm the transaction directly with SSLCommerz first.
+            if ($status === 'completed' && $method === 'ssl_commerz') {
+                $verified = $this->verifySslTransaction($data);
+
+                if (!$verified
+                    || $verified['tran_id'] !== $payment->transaction_id
+                    || (string) $verified['currency'] !== $payment->currency
+                    || round((float) $verified['amount'], 2) !== round((float) $payment->amount, 2)
+                ) {
+                    Log::error('SSL Commerz callback failed independent verification', [
+                        'transaction_id' => $transactionId,
+                        'callback' => $data,
+                        'verified' => $verified,
+                    ]);
+
+                    $status = 'failed';
+                    $data = array_merge($data, ['verification_failed' => true]);
+                }
+            }
 
             $payment->update([
                 'status' => $status,
