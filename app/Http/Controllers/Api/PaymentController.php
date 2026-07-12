@@ -32,6 +32,11 @@ class PaymentController extends Controller
 
     /**
      * Handle SSL Commerz success redirect.
+     *
+     * SSLCommerz POSTs here directly from the customer's browser, so this
+     * payload is not trustworthy on its own. The IPN call is what actually
+     * verifies and marks the order paid via handlePaymentCallback(); this
+     * redirect just checks whether that has already happened.
      */
     public function sslCommerzSuccess(Request $request)
     {
@@ -42,8 +47,19 @@ class PaymentController extends Controller
             return redirect()->away(config('app.frontend_url') . '/payment/failed');
         }
 
+        if ($order->payment_status !== 'paid') {
+            $this->paymentService->handlePaymentCallback('ssl_commerz', $request->all());
+            $order->refresh();
+        }
+
+        if ($order->payment_status !== 'paid') {
+            return redirect()->away(
+                config('app.frontend_url') . '/payment/failed?order=' . $order->order_number
+            );
+        }
+
         return redirect()->away(
-            config('app.frontend_url') . '/order/success/' . $order->order_number
+            config('app.frontend_url') . '/invoice/' . $order->order_number
         );
     }
 
@@ -67,7 +83,7 @@ class PaymentController extends Controller
         $orderNumber = $request->get('tran_id');
 
         return redirect()->away(
-            config('app.frontend_url') . '/payment/cancelled?order=' . $orderNumber
+            config('app.frontend_url') . '/payment/cancel?order=' . $orderNumber
         );
     }
 
