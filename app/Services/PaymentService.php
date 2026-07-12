@@ -132,16 +132,19 @@ class PaymentService implements PaymentServiceInterface
     }
 
     /**
-     * Record manual payment for POS orders.
-     * 
+     * Record manual payment for POS orders or admin-recorded payments.
+     * Supports partial payments: order payment_status becomes 'partial' until
+     * the sum of completed payments reaches total_amount, then 'paid'.
+     *
      * @param Order $order
      * @param float $amount
-     * @param string $method
+     * @param string $method cash, card, bkash, nagad, bank_transfer, manual
+     * @param array $options reference_number, note, proof_path, recorded_by
      * @return Payment
      */
-    public function recordManualPayment(Order $order, float $amount, string $method = 'manual'): Payment
+    public function recordManualPayment(Order $order, float $amount, string $method = 'manual', array $options = []): Payment
     {
-        return DB::transaction(function () use ($order, $amount, $method) {
+        return DB::transaction(function () use ($order, $amount, $method, $options) {
             $payment = Payment::create([
                 'order_id' => $order->id,
                 'user_id' => $order->user_id,
@@ -149,16 +152,33 @@ class PaymentService implements PaymentServiceInterface
                 'currency' => 'BDT',
                 'payment_method' => 'manual', // DB enum constraint
                 'transaction_id' => $this->generateTransactionId('MAN'),
+                'reference_number' => $options['reference_number'] ?? null,
+                'proof_path' => $options['proof_path'] ?? null,
+                'note' => $options['note'] ?? null,
+                'recorded_by' => $options['recorded_by'] ?? null,
                 'status' => 'completed',
-                'gateway_response' => ['method' => $method], // Store actual method (cash/card) here
+                'gateway_response' => ['method' => $method], // Store actual method (cash/card/bkash/...) here
                 'paid_at' => now(),
             ]);
 
-            // Update order payment status
-            $order->update([
-                'payment_status' => 'paid',
-                'status' => 'confirmed',
-            ]);
+            $totalPaid = $order->payments()->where('status', 'completed')->sum('amount');
+
+            $paymentStatus = $totalPaid >= (float) $order->total_amount ? 'paid' : 'partial';
+
+            $orderUpdate = ['payment_status' => $paymentStatus];
+            if ($paymentStatus === 'paid' && $order->status === 'pending') {
+                $orderUpdate['status'] = 'confirmed';
+            }
+
+            if ($order->is_preorder && $order->preorder_payment_status !== 'fully_paid') {
+                $remaining = max(0, (float) $order->preorder_remaining_amount - $amount);
+                $orderUpdate['preorder_remaining_amount'] = $remaining;
+                if ($remaining <= 0) {
+                    $orderUpdate['preorder_payment_status'] = 'fully_paid';
+                }
+            }
+
+            $order->update($orderUpdate);
 
             return $payment;
         });

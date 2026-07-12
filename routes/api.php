@@ -236,6 +236,7 @@ Route::prefix('admin')->middleware(['auth:sanctum', 'admin'])->group(function ()
     Route::post('orders/{id}/cancel', [\App\Http\Controllers\Api\Admin\OrderController::class, 'cancel']);
     Route::post('orders/{id}/tracking', [\App\Http\Controllers\Api\Admin\OrderController::class, 'assignTracking']);
     Route::put('orders/{id}/notes', [\App\Http\Controllers\Api\Admin\OrderController::class, 'updateNotes']);
+    Route::post('orders/{id}/record-payment', [\App\Http\Controllers\Api\Admin\OrderController::class, 'recordPayment']);
 
     // POS
     Route::prefix('pos')->group(function () {

@@ -13,9 +13,9 @@ interface PaymentServiceInterface
     public function processPayment(Order $order, string $method): array;
 
     /**
-     * Record manual payment for POS orders.
+     * Record manual payment for POS orders or admin-recorded payments.
      */
-    public function recordManualPayment(Order $order, float $amount, string $method = 'manual'): Payment;
+    public function recordManualPayment(Order $order, float $amount, string $method = 'manual', array $options = []): Payment;
 
     /**
      * Handle payment gateway callback.

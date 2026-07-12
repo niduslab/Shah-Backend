@@ -12,6 +12,7 @@ use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response;
+use Illuminate\Support\Facades\Storage;
 
 class POSController extends Controller
 {
@@ -26,6 +27,12 @@ class POSController extends Controller
      */
     public function createOrder(Request $request): JsonResponse
     {
+        // multipart/form-data (used when a proof file is attached) sends
+        // nested arrays as a JSON string rather than as PHP array fields.
+        if ($request->has('items') && is_string($request->input('items'))) {
+            $request->merge(['items' => json_decode($request->input('items'), true) ?? []]);
+        }
+
         $validated = $request->validate([
             'customer_name' => 'required|string|max:255',
             'customer_email' => 'required|email|max:255',
@@ -35,7 +42,10 @@ class POSController extends Controller
             'items.*.variation_id' => 'nullable|exists:product_variations,id',
             'items.*.quantity' => 'required|integer|min:1',
             'discount' => 'nullable|numeric|min:0',
-            'payment_method' => 'nullable|in:cash,card,manual',
+            'payment_method' => 'nullable|in:cash,card,manual,bkash,nagad,bank_transfer',
+            'reference_number' => 'nullable|string|max:100',
+            'payment_note' => 'nullable|string|max:1000',
+            'proof' => 'nullable|file|mimes:jpg,jpeg,png,webp,pdf|max:5120',
             'notes' => 'nullable|string',
         ]);
 
@@ -79,12 +89,32 @@ class POSController extends Controller
             $validated['discount'] ?? null
         );
 
-        // Record manual payment
-        $this->paymentService->recordManualPayment(
-            $order,
-            $order->total_amount,
-            $validated['payment_method'] ?? 'cash'
-        );
+        $uploadedPath = null;
+
+        try {
+            if ($request->hasFile('proof')) {
+                $uploadedPath = $request->file('proof')->store('storage/payments', 'public');
+            }
+
+            // Record manual payment
+            $this->paymentService->recordManualPayment(
+                $order,
+                $order->total_amount,
+                $validated['payment_method'] ?? 'cash',
+                [
+                    'reference_number' => $validated['reference_number'] ?? null,
+                    'note' => $validated['payment_note'] ?? null,
+                    'proof_path' => $uploadedPath,
+                    'recorded_by' => $request->user()?->id,
+                ]
+            );
+        } catch (\Exception $e) {
+            if ($uploadedPath && Storage::disk('public')->exists($uploadedPath)) {
+                Storage::disk('public')->delete($uploadedPath);
+            }
+
+            throw $e;
+        }
 
         if (!empty($validated['notes'])) {
             $order->update(['notes' => $validated['notes']]);

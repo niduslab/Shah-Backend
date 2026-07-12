@@ -5,15 +5,19 @@ namespace App\Http\Controllers\Api\Admin;
 use App\Http\Controllers\Controller;
 use App\Models\Order;
 use App\Services\Contracts\OrderServiceInterface;
+use App\Services\Contracts\PaymentServiceInterface;
 use App\Services\Contracts\ShippingServiceInterface;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Storage;
 
 class OrderController extends Controller
 {
     public function __construct(
         protected OrderServiceInterface $orderService,
-        protected ShippingServiceInterface $shippingService
+        protected ShippingServiceInterface $shippingService,
+        protected PaymentServiceInterface $paymentService
     ) {}
 
     /**
@@ -230,6 +234,72 @@ class OrderController extends Controller
             'message' => 'Order notes updated successfully.',
             'data' => $order,
         ]);
+    }
+
+    /**
+     * Record a manual payment against an order (e.g. bank transfer, cash,
+     * bKash/Nagad received outside the gateway). Supports partial amounts
+     * and an optional proof document (receipt, bank slip, screenshot).
+     */
+    public function recordPayment(Request $request, int $id): JsonResponse
+    {
+        $order = Order::find($id);
+
+        if (!$order) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Order not found.',
+            ], 404);
+        }
+
+        $validated = $request->validate([
+            'amount' => 'required|numeric|min:0.01',
+            'payment_method' => 'required|in:cash,bkash,nagad,bank_transfer,card,manual',
+            'reference_number' => 'nullable|string|max:100',
+            'note' => 'nullable|string|max:1000',
+            'proof' => 'nullable|file|mimes:jpg,jpeg,png,webp,pdf|max:5120',
+        ]);
+
+        $uploadedPath = null;
+
+        DB::beginTransaction();
+
+        try {
+            if ($request->hasFile('proof')) {
+                $uploadedPath = $request->file('proof')->store('storage/payments', 'public');
+            }
+
+            $payment = $this->paymentService->recordManualPayment(
+                $order,
+                (float) $validated['amount'],
+                $validated['payment_method'],
+                [
+                    'reference_number' => $validated['reference_number'] ?? null,
+                    'note' => $validated['note'] ?? null,
+                    'proof_path' => $uploadedPath,
+                    'recorded_by' => $request->user()?->id,
+                ]
+            );
+
+            DB::commit();
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Payment recorded successfully.',
+                'data' => [
+                    'order' => $order->fresh(),
+                    'payment' => $payment,
+                ],
+            ], 201);
+        } catch (\Exception $e) {
+            DB::rollBack();
+
+            if ($uploadedPath && Storage::disk('public')->exists($uploadedPath)) {
+                Storage::disk('public')->delete($uploadedPath);
+            }
+
+            throw $e;
+        }
     }
 
     /**
