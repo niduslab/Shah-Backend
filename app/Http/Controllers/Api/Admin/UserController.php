@@ -9,6 +9,7 @@ use App\Services\Contracts\UserServiceInterface;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Validation\Rule;
 
 class UserController extends Controller
 {
@@ -110,6 +111,7 @@ class UserController extends Controller
             'password'   => 'required|string|min:8',
             'user_type'  => 'sometimes|in:customer,vendor,admin',
             'status'     => 'sometimes|boolean',
+            'role'       => ['sometimes', 'nullable', 'string', Rule::exists('roles', 'name')],
         ]);
 
         $user = User::create([
@@ -122,10 +124,14 @@ class UserController extends Controller
             'status'     => $validated['status'] ?? true,
         ]);
 
+        if ($user->user_type === 'admin' && !empty($validated['role'])) {
+            $user->syncRoles([$validated['role']]);
+        }
+
         return response()->json([
             'success' => true,
             'message' => 'User created successfully.',
-            'data'    => $user,
+            'data'    => $user->fresh(),
         ], 201);
     }
 
@@ -175,6 +181,7 @@ class UserController extends Controller
             'password' => 'sometimes|nullable|string|min:8',
             'user_type' => 'sometimes|in:customer,vendor,admin',
             'status' => 'sometimes|boolean',
+            'role' => ['sometimes', 'nullable', 'string', Rule::exists('roles', 'name')],
         ]);
 
         // Handle user_type and status separately as they're not in updateProfile
@@ -192,6 +199,15 @@ class UserController extends Controller
         // Update admin-specific fields
         if (!empty($adminFields)) {
             $user->update($adminFields);
+            $user->refresh();
+        }
+
+        if (array_key_exists('role', $validated)) {
+            if ($user->user_type === 'admin' && $validated['role']) {
+                $user->syncRoles([$validated['role']]);
+            } else {
+                $user->syncRoles([]);
+            }
             $user->refresh();
         }
 

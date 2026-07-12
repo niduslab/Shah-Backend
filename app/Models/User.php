@@ -7,10 +7,11 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 use Laravel\Sanctum\HasApiTokens;
+use Spatie\Permission\Traits\HasRoles;
 
 class User extends Authenticatable implements MustVerifyEmail
 {
-    use HasApiTokens, HasFactory, Notifiable;
+    use HasApiTokens, HasFactory, Notifiable, HasRoles;
 
     protected $table = 'users';
 
@@ -57,6 +58,8 @@ class User extends Authenticatable implements MustVerifyEmail
     protected $appends = [
         'name',
         'full_name',
+        'role_names',
+        'permission_names',
     ];
 
     /**
@@ -73,6 +76,22 @@ class User extends Authenticatable implements MustVerifyEmail
     public function getFullNameAttribute(): string
     {
         return "{$this->first_name} {$this->last_name}";
+    }
+
+    /**
+     * Get the names of the roles assigned to this user.
+     */
+    public function getRoleNamesAttribute(): array
+    {
+        return $this->getRoleNames()->values()->all();
+    }
+
+    /**
+     * Get the flattened list of permission names granted via this user's roles.
+     */
+    public function getPermissionNamesAttribute(): array
+    {
+        return $this->getAllPermissions()->pluck('name')->values()->all();
     }
 
     /**

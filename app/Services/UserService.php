@@ -2,12 +2,14 @@
 
 namespace App\Services;
 
+use App\Mail\WelcomeMail;
 use App\Models\User;
 use App\Services\Contracts\UserServiceInterface;
-use Illuminate\Auth\Events\Registered;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Password;
 use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
@@ -25,8 +27,8 @@ class UserService implements UserServiceInterface
     {
         $this->validateRegistrationData($data);
 
-        return DB::transaction(function () use ($data) {
-            $user = User::create([
+        $user = DB::transaction(function () use ($data) {
+            return User::create([
                 'first_name' => $data['first_name'],
                 'last_name' => $data['last_name'],
                 'email' => $data['email'],
@@ -35,12 +37,24 @@ class UserService implements UserServiceInterface
                 'user_type' => 'customer',
                 'status' => true,
             ]);
-
-            // Dispatch registered event to trigger verification email
-            event(new Registered($user));
-
-            return $user;
         });
+
+        // Send the welcome email using the same reliable path as checkout/OTP
+        // emails: a plain Mailable pushed onto the queue. This avoids the
+        // framework's Registered -> SendEmailVerificationNotification flow,
+        // which was throwing and returning a 500 on registration. Guarded so a
+        // mail failure can never fail registration.
+        try {
+            Mail::to($user->email)->queue(new WelcomeMail($user));
+        } catch (\Throwable $e) {
+            Log::error('Failed to send welcome email during registration.', [
+                'user_id' => $user->id,
+                'email' => $user->email,
+                'error' => $e->getMessage(),
+            ]);
+        }
+
+        return $user;
     }
 
     /**

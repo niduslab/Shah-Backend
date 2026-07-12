@@ -81,6 +81,9 @@ Route::post('contact-messages', [\App\Http\Controllers\Api\ContactMessageControl
 // Newsletter Subscription (Public)
 Route::post('newsletter/subscribe', [\App\Http\Controllers\Api\NewsletterSubscriberController::class, 'store']);
 
+// Tracking Pixels (Public - active pixels for storefront script injection)
+Route::get('tracking-pixels/active', [\App\Http\Controllers\Api\TrackingPixelController::class, 'active']);
+
 // Analytics Tracking (Public)
 Route::prefix('analytics')->group(function () {
     Route::post('track/page-view', [\App\Http\Controllers\Api\AnalyticsTrackingController::class, 'trackPageView']);
@@ -184,6 +187,10 @@ Route::prefix('admin')->middleware(['auth:sanctum', 'admin'])->group(function ()
     // Users
     Route::apiResource('users', \App\Http\Controllers\Api\Admin\UserController::class);
     Route::post('users/{id}/toggle-status', [\App\Http\Controllers\Api\Admin\UserController::class, 'toggleStatus']);
+
+    // Roles & Permissions
+    Route::get('permissions', [\App\Http\Controllers\Api\Admin\RoleController::class, 'permissions']);
+    Route::apiResource('roles', \App\Http\Controllers\Api\Admin\RoleController::class);
 
     // Categories
     Route::get('categories/tree', [\App\Http\Controllers\Api\Admin\CategoryController::class, 'tree']);
@@ -417,4 +424,9 @@ Route::prefix('admin')->middleware(['auth:sanctum', 'admin'])->group(function ()
         Route::get('page-views', [\App\Http\Controllers\Api\Admin\AnalyticsController::class, 'pageViews']);
         Route::get('export', [\App\Http\Controllers\Api\Admin\AnalyticsController::class, 'export']);
     });
+
+    // Tracking Pixels / Tag Management (Admin)
+    Route::apiResource('tracking-pixels', \App\Http\Controllers\Api\Admin\TrackingPixelController::class);
+    Route::post('tracking-pixels/{id}/toggle', [\App\Http\Controllers\Api\Admin\TrackingPixelController::class, 'toggle']);
+    Route::post('tracking-pixels/{id}/verify', [\App\Http\Controllers\Api\Admin\TrackingPixelController::class, 'verify']);
 });
