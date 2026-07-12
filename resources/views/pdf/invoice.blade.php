@@ -237,8 +237,8 @@
                             @endif
                         </td>
                         <td class="text-center">{{ $item->quantity }}</td>
-                        <td class="text-right">৳{{ number_format($item->unit_price, 2) }}</td>
-                        <td class="text-right">৳{{ number_format($item->total_price, 2) }}</td>
+                        <td class="text-right">BDT {{ number_format($item->unit_price, 2) }}</td>
+                        <td class="text-right">BDT {{ number_format($item->total_price, 2) }}</td>
                     </tr>
                     @endforeach
                 </tbody>
@@ -249,27 +249,27 @@
         <table class="totals-table">
             <tr>
                 <td class="label">Subtotal:</td>
-                <td class="value">৳{{ number_format($invoice->subtotal, 2) }}</td>
+                <td class="value">BDT {{ number_format($invoice->subtotal, 2) }}</td>
             </tr>
             @if($invoice->discount_amount > 0)
             <tr>
                 <td class="label">Discount:</td>
-                <td class="value">-৳{{ number_format($invoice->discount_amount, 2) }}</td>
+                <td class="value">-BDT {{ number_format($invoice->discount_amount, 2) }}</td>
             </tr>
             @endif
             <tr>
                 <td class="label">Shipping:</td>
-                <td class="value">৳{{ number_format($invoice->shipping_cost, 2) }}</td>
+                <td class="value">BDT {{ number_format($invoice->shipping_cost, 2) }}</td>
             </tr>
             @if($invoice->tax_amount > 0)
             <tr>
                 <td class="label">Tax:</td>
-                <td class="value">৳{{ number_format($invoice->tax_amount, 2) }}</td>
+                <td class="value">BDT {{ number_format($invoice->tax_amount, 2) }}</td>
             </tr>
             @endif
             <tr class="grand-total">
                 <td class="label">Total:</td>
-                <td class="value">৳{{ number_format($invoice->total_amount, 2) }}</td>
+                <td class="value">BDT {{ number_format($invoice->total_amount, 2) }}</td>
             </tr>
         </table>
 

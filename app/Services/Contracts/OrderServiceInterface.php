@@ -22,7 +22,7 @@ interface OrderServiceInterface
     /**
      * Create a POS order for in-store sales.
      */
-    public function createPosOrder(array $customerData, array $items, ?float $discount = null): Order;
+    public function createPosOrder(array $customerData, array $items, ?float $discount = null, array $options = []): Order;
 
     /**
      * Update order status.

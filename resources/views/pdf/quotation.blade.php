@@ -109,8 +109,8 @@
                             @endif
                         </td>
                         <td class="text-center">{{ $item['quantity'] }}</td>
-                        <td class="text-right">৳{{ number_format($item['unit_price'], 2) }}</td>
-                        <td class="text-right">৳{{ number_format($item['total'], 2) }}</td>
+                        <td class="text-right">BDT {{ number_format($item['unit_price'], 2) }}</td>
+                        <td class="text-right">BDT {{ number_format($item['total'], 2) }}</td>
                     </tr>
                     @endforeach
                 </tbody>
@@ -121,17 +121,17 @@
         <table class="totals-table">
             <tr>
                 <td class="label">Subtotal:</td>
-                <td class="value">৳{{ number_format($subtotal, 2) }}</td>
+                <td class="value">BDT {{ number_format($subtotal, 2) }}</td>
             </tr>
             @if($discount_amount > 0)
             <tr>
                 <td class="label">Discount ({{ $discount_percent }}%):</td>
-                <td class="value">-৳{{ number_format($discount_amount, 2) }}</td>
+                <td class="value">-BDT {{ number_format($discount_amount, 2) }}</td>
             </tr>
             @endif
             <tr class="grand-total">
                 <td class="label">Total:</td>
-                <td class="value">৳{{ number_format($total, 2) }}</td>
+                <td class="value">BDT {{ number_format($total, 2) }}</td>
             </tr>
         </table>
 

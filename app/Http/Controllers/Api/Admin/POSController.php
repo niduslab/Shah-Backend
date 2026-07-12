@@ -42,12 +42,23 @@ class POSController extends Controller
             'items.*.variation_id' => 'nullable|exists:product_variations,id',
             'items.*.quantity' => 'required|integer|min:1',
             'discount' => 'nullable|numeric|min:0',
+            'discount_type' => 'nullable|in:percent,flat',
+            'shipping_cost' => 'nullable|numeric|min:0',
+            'shipping_address_line1' => 'nullable|string|max:255',
+            'shipping_address_line2' => 'nullable|string|max:255',
+            'shipping_city' => 'nullable|string|max:255',
+            'shipping_state' => 'nullable|string|max:255',
+            'shipping_zip_code' => 'nullable|string|max:20',
             'payment_method' => 'nullable|in:cash,card,manual,bkash,nagad,bank_transfer',
             'reference_number' => 'nullable|string|max:100',
             'payment_note' => 'nullable|string|max:1000',
             'proof' => 'nullable|file|mimes:jpg,jpeg,png,webp,pdf|max:5120',
             'notes' => 'nullable|string',
         ]);
+
+        if (($validated['discount_type'] ?? 'flat') === 'percent') {
+            $request->validate(['discount' => 'nullable|numeric|min:0|max:100']);
+        }
 
         // Validate stock availability
         foreach ($validated['items'] as $item) {
@@ -86,7 +97,16 @@ class POSController extends Controller
         $order = $this->orderService->createPosOrder(
             $customerData,
             $validated['items'],
-            $validated['discount'] ?? null
+            $validated['discount'] ?? null,
+            [
+                'discount_type' => $validated['discount_type'] ?? 'flat',
+                'shipping_cost' => $validated['shipping_cost'] ?? 0,
+                'shipping_address_line1' => $validated['shipping_address_line1'] ?? null,
+                'shipping_address_line2' => $validated['shipping_address_line2'] ?? null,
+                'shipping_city' => $validated['shipping_city'] ?? null,
+                'shipping_state' => $validated['shipping_state'] ?? null,
+                'shipping_zip_code' => $validated['shipping_zip_code'] ?? null,
+            ]
         );
 
         $uploadedPath = null;
@@ -236,6 +256,8 @@ class POSController extends Controller
             'items.*.variation_id' => 'nullable|exists:product_variations,id',
             'items.*.quantity' => 'required|integer|min:1',
             'discount' => 'nullable|numeric|min:0',
+            'discount_type' => 'nullable|in:percent,flat',
+            'shipping_cost' => 'nullable|numeric|min:0',
         ]);
 
         $subtotal = 0;
@@ -243,8 +265,8 @@ class POSController extends Controller
 
         foreach ($validated['items'] as $item) {
             $product = Product::find($item['product_id']);
-            $variation = isset($item['variation_id']) 
-                ? ProductVariation::find($item['variation_id']) 
+            $variation = isset($item['variation_id'])
+                ? ProductVariation::find($item['variation_id'])
                 : null;
 
             $price = $variation?->price ?? $product->price;
@@ -261,15 +283,22 @@ class POSController extends Controller
             ];
         }
 
-        $discount = $validated['discount'] ?? 0;
-        $total = max(0, $subtotal - $discount);
+        $discountType = $validated['discount_type'] ?? 'flat';
+        $discountValue = $validated['discount'] ?? 0;
+        $discountAmount = $discountType === 'percent'
+            ? ($subtotal * $discountValue) / 100
+            : $discountValue;
+        $shippingCost = $validated['shipping_cost'] ?? 0;
+        $total = max(0, $subtotal - $discountAmount) + $shippingCost;
 
         return response()->json([
             'success' => true,
             'data' => [
                 'items' => $itemDetails,
                 'subtotal' => $subtotal,
-                'discount' => $discount,
+                'discount' => $discountAmount,
+                'discount_type' => $discountType,
+                'shipping_cost' => $shippingCost,
                 'total' => $total,
             ],
         ]);

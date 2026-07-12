@@ -26,7 +26,7 @@
                 <p><strong>Invoice Number:</strong> {{ $invoice->invoice_number }}</p>
                 <p><strong>Order Number:</strong> {{ $invoice->order->order_number }}</p>
                 <p><strong>Invoice Date:</strong> {{ $invoice->invoice_date->format('F j, Y') }}</p>
-                <p><strong>Total Amount:</strong> ৳{{ number_format($invoice->total_amount, 2) }}</p>
+                <p><strong>Total Amount:</strong> BDT {{ number_format($invoice->total_amount, 2) }}</p>
             </div>
             
             <p>Thank you for shopping with Shah Sports!</p>

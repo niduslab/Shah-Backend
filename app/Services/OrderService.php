@@ -343,15 +343,16 @@ class OrderService implements OrderServiceInterface
 
     /**
      * Create a POS order for in-store sales.
-     * 
+     *
      * @param array $customerData Contains name, email, phone, address (optional)
      * @param array $items
-     * @param float|null $discount Manual discount amount
+     * @param float|null $discount Manual discount value (interpreted per $options['discount_type'])
+     * @param array $options discount_type ('percent'|'flat'), shipping_cost, shipping_address_line1/2, shipping_city, shipping_state, shipping_zip_code
      * @return Order
      */
-    public function createPosOrder(array $customerData, array $items, ?float $discount = null): Order
+    public function createPosOrder(array $customerData, array $items, ?float $discount = null, array $options = []): Order
     {
-        return DB::transaction(function () use ($customerData, $items, $discount) {
+        return DB::transaction(function () use ($customerData, $items, $discount, $options) {
             // Calculate subtotal
             $subtotal = 0;
             $processedItems = [];
@@ -382,9 +383,15 @@ class OrderService implements OrderServiceInterface
                 ];
             }
 
-            // Apply discount
-            $discountAmount = $discount ?? 0;
-            $totalAmount = max(0, $subtotal - $discountAmount);
+            // Apply discount (either a flat amount or a percentage of the subtotal)
+            $discountType = $options['discount_type'] ?? 'flat';
+            $discountValue = $discount ?? 0;
+            $discountAmount = $discountType === 'percent'
+                ? ($subtotal * $discountValue) / 100
+                : $discountValue;
+
+            $shippingCost = (float) ($options['shipping_cost'] ?? 0);
+            $totalAmount = max(0, $subtotal - $discountAmount) + $shippingCost;
 
             // Create order
             $order = Order::create([
@@ -392,9 +399,15 @@ class OrderService implements OrderServiceInterface
                 'order_number' => $this->generateOrderNumber('POS'),
                 'order_type' => 'in_store',
                 'subtotal' => $subtotal,
-                'shipping_cost' => 0,
-                'shipping_method' => 'none',
+                'shipping_cost' => $shippingCost,
+                'shipping_method' => $shippingCost > 0 ? 'shah_sports_team' : 'none',
+                'shipping_address_line1' => $options['shipping_address_line1'] ?? null,
+                'shipping_address_line2' => $options['shipping_address_line2'] ?? null,
+                'shipping_city' => $options['shipping_city'] ?? null,
+                'shipping_state' => $options['shipping_state'] ?? null,
+                'shipping_zip_code' => $options['shipping_zip_code'] ?? null,
                 'discount_amount' => $discountAmount,
+                'discount_type' => $discountType,
                 'tax_amount' => 0,
                 'total_amount' => $totalAmount,
                 'status' => 'confirmed',
