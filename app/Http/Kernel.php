@@ -45,10 +45,13 @@ class Kernel extends HttpKernel
             \Illuminate\Routing\Middleware\SubstituteBindings::class,
         ],
 
+        // Rate limiting is applied per route group (throttle:public-read,
+        // throttle:auth, throttle:checkout, ...) rather than globally here, so
+        // that cheap catalog reads and sensitive writes get separate budgets.
+        // See App\Providers\RouteServiceProvider::configureRateLimiting().
         'api' => [
             \Laravel\Sanctum\Http\Middleware\EnsureFrontendRequestsAreStateful::class,
             \Illuminate\Session\Middleware\StartSession::class,
-            \Illuminate\Routing\Middleware\ThrottleRequests::class.':api',
             \Illuminate\Routing\Middleware\SubstituteBindings::class,
         ],
     ];

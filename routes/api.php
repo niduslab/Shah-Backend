@@ -3,7 +3,8 @@
 use Illuminate\Support\Facades\Route;
 
 // Public Routes
-Route::prefix('auth')->group(function () {
+// Credential + OTP endpoints are throttled tightly (see RouteServiceProvider).
+Route::prefix('auth')->middleware('throttle:auth')->group(function () {
     Route::post('register', [\App\Http\Controllers\Api\AuthController::class, 'register']);
     Route::post('login', [\App\Http\Controllers\Api\AuthController::class, 'login']);
     Route::post('google/callback', [\App\Http\Controllers\Api\AuthController::class, 'googleCallback']);
@@ -14,11 +15,15 @@ Route::prefix('auth')->group(function () {
     Route::post('send-registration-otp', [\App\Http\Controllers\Api\AuthController::class, 'sendRegistrationOtp']);
     Route::post('verify-otp', [\App\Http\Controllers\Api\AuthController::class, 'verifyOtp']);
     Route::post('reset-password-otp', [\App\Http\Controllers\Api\AuthController::class, 'resetPasswordWithOtp']);
-    Route::get('csrf-token', [\App\Http\Controllers\Api\AuthController::class, 'csrfToken']);
 });
 
+// CSRF token bootstrap is a read, not a credential attempt — it must not be
+// throttled alongside login or the SPA cannot recover from a 419.
+Route::get('auth/csrf-token', [\App\Http\Controllers\Api\AuthController::class, 'csrfToken'])
+    ->middleware('throttle:public-read');
+
 // Catalog (Public)
-Route::prefix('catalog')->group(function () {
+Route::prefix('catalog')->middleware('throttle:public-read')->group(function () {
     Route::get('categories', [\App\Http\Controllers\Api\CatalogController::class, 'categories']);
     Route::get('categories/{slug}', [\App\Http\Controllers\Api\CatalogController::class, 'category']);
     Route::get('categories/{slug}/products', [\App\Http\Controllers\Api\CatalogController::class, 'productsByCategory']);
@@ -31,61 +36,65 @@ Route::prefix('catalog')->group(function () {
 });
 
 // Flash Deals (Public)
-Route::prefix('flash-deals')->group(function () {
+Route::prefix('flash-deals')->middleware('throttle:public-read')->group(function () {
     Route::get('/', [\App\Http\Controllers\Api\FlashDealController::class, 'index']);
     Route::get('upcoming', [\App\Http\Controllers\Api\FlashDealController::class, 'upcoming']);
     Route::get('{id}', [\App\Http\Controllers\Api\FlashDealController::class, 'show']);
 });
 
 // Galleries (Public)
-Route::prefix('galleries')->group(function () {
+Route::prefix('galleries')->middleware('throttle:public-read')->group(function () {
     Route::get('/', [\App\Http\Controllers\Api\GalleryController::class, 'index']);
     Route::get('{slug}', [\App\Http\Controllers\Api\GalleryController::class, 'show']);
 });
 
 // Cart (Public)
-Route::prefix('cart')->group(function () {
+// POSTs here are read-shaped: they price a cart rather than mutate server state.
+Route::prefix('cart')->middleware('throttle:public-read')->group(function () {
     Route::post('summary', [\App\Http\Controllers\Api\CartController::class, 'summary']);
     Route::post('validate-coupon', [\App\Http\Controllers\Api\CartController::class, 'validateCoupon']);
     Route::post('check-availability', [\App\Http\Controllers\Api\CartController::class, 'checkAvailability']);
     Route::get('available-coupons', [\App\Http\Controllers\Api\CartController::class, 'getAvailableCoupons']);
 });
 
-// Reviews (Public - Read)
-Route::get('products/{productId}/reviews', [\App\Http\Controllers\Api\ReviewController::class, 'productReviews']);
-Route::get('reviews/product/{productId}', [\App\Http\Controllers\Api\ReviewController::class, 'productReviews']);
+// Public reads: reviews, pages, policies, banners, order tracking, pixels.
+Route::middleware('throttle:public-read')->group(function () {
+    // Reviews (Public - Read)
+    Route::get('products/{productId}/reviews', [\App\Http\Controllers\Api\ReviewController::class, 'productReviews']);
+    Route::get('reviews/product/{productId}', [\App\Http\Controllers\Api\ReviewController::class, 'productReviews']);
 
-// Pages (Public)
-Route::get('policies', [\App\Http\Controllers\Api\PageController::class, 'allPolicies']);
-Route::get('policies/{type}', [\App\Http\Controllers\Api\PageController::class, 'policy']);
-Route::get('pages/{slug}', [\App\Http\Controllers\Api\PageController::class, 'show']);
-Route::get('pages/type/{type}', [\App\Http\Controllers\Api\PageController::class, 'getByType']);
-Route::get('banners/{position?}', [\App\Http\Controllers\Api\PageController::class, 'banners']);
+    // Pages (Public)
+    Route::get('policies', [\App\Http\Controllers\Api\PageController::class, 'allPolicies']);
+    Route::get('policies/{type}', [\App\Http\Controllers\Api\PageController::class, 'policy']);
+    Route::get('pages/{slug}', [\App\Http\Controllers\Api\PageController::class, 'show']);
+    Route::get('pages/type/{type}', [\App\Http\Controllers\Api\PageController::class, 'getByType']);
+    Route::get('banners/{position?}', [\App\Http\Controllers\Api\PageController::class, 'banners']);
 
-// Page Content (Public - Frontend)
-Route::prefix('page-content')->group(function () {
-    Route::get('{pageKey}', [\App\Http\Controllers\Api\PageContentController::class, 'getByPageKey']);
-    Route::get('brand/{brandSlug}', [\App\Http\Controllers\Api\PageContentController::class, 'getByBrandSlug']);
+    // Page Content (Public - Frontend)
+    Route::prefix('page-content')->group(function () {
+        Route::get('{pageKey}', [\App\Http\Controllers\Api\PageContentController::class, 'getByPageKey']);
+        Route::get('brand/{brandSlug}', [\App\Http\Controllers\Api\PageContentController::class, 'getByBrandSlug']);
+    });
+
+    // Order Tracking (Public)
+    Route::get('orders/{orderNumber}/track', [\App\Http\Controllers\Api\OrderController::class, 'track']);
+    Route::get('orders/{orderNumber}', [\App\Http\Controllers\Api\OrderController::class, 'show']);
+
+    // Tracking Pixels (Public - active pixels for storefront script injection)
+    Route::get('tracking-pixels/active', [\App\Http\Controllers\Api\TrackingPixelController::class, 'active']);
 });
 
-// Order Tracking (Public)
-Route::get('orders/{orderNumber}/track', [\App\Http\Controllers\Api\OrderController::class, 'track']);
-Route::get('orders/{orderNumber}', [\App\Http\Controllers\Api\OrderController::class, 'show']);
-
-// Visitor Popup (Public)
-Route::post('visitor-popup', [\App\Http\Controllers\Api\VisitorPopupController::class, 'store']);
-
-// Contact Message (Public)
-Route::post('contact-messages', [\App\Http\Controllers\Api\ContactMessageController::class, 'store']);
-
-// Newsletter Subscription (Public)
-Route::post('newsletter/subscribe', [\App\Http\Controllers\Api\NewsletterSubscriberController::class, 'store']);
-
-// Tracking Pixels (Public - active pixels for storefront script injection)
-Route::get('tracking-pixels/active', [\App\Http\Controllers\Api\TrackingPixelController::class, 'active']);
+// Unauthenticated public writes — common spam targets, throttled tightly.
+Route::middleware('throttle:public-write')->group(function () {
+    Route::post('visitor-popup', [\App\Http\Controllers\Api\VisitorPopupController::class, 'store']);
+    Route::post('contact-messages', [\App\Http\Controllers\Api\ContactMessageController::class, 'store']);
+    Route::post('newsletter/subscribe', [\App\Http\Controllers\Api\NewsletterSubscriberController::class, 'store']);
+});
 
 // Analytics Tracking (Public)
-Route::prefix('analytics')->group(function () {
+// Beacons fire on every page view / cart action; isolated so they cannot
+// exhaust the catalog budget.
+Route::prefix('analytics')->middleware('throttle:telemetry')->group(function () {
     Route::post('track/page-view', [\App\Http\Controllers\Api\AnalyticsTrackingController::class, 'trackPageView']);
     Route::post('track/product-view', [\App\Http\Controllers\Api\AnalyticsTrackingController::class, 'trackProductView']);
     Route::post('track/cart-event', [\App\Http\Controllers\Api\AnalyticsTrackingController::class, 'trackCartEvent']);
@@ -94,23 +103,31 @@ Route::prefix('analytics')->group(function () {
 });
 
 // Checkout (Public - supports both guest and authenticated)
-Route::prefix('checkout')->group(function () {
+Route::prefix('checkout')->middleware('throttle:checkout')->group(function () {
     Route::post('shipping-methods', [\App\Http\Controllers\Api\CheckoutController::class, 'shippingMethods']);
     Route::post('preview', [\App\Http\Controllers\Api\CheckoutController::class, 'preview']);
     Route::post('process', [\App\Http\Controllers\Api\CheckoutController::class, 'process']);
 });
 
 // Payment Callbacks (Public - No Auth)
+// Deliberately NOT throttled: SSLCommerz retries IPNs from its own IPs, and a
+// 429 here would drop a payment notification for a real order. Authenticity is
+// enforced by signature validation in PaymentController, not by rate limiting.
 Route::prefix('payments')->group(function () {
     Route::post('ssl-commerz/ipn', [\App\Http\Controllers\Api\PaymentController::class, 'sslCommerzIpn'])->name('payment.ipn');
     Route::match(['get', 'post'], 'ssl-commerz/success', [\App\Http\Controllers\Api\PaymentController::class, 'sslCommerzSuccess'])->name('payment.success');
     Route::match(['get', 'post'], 'ssl-commerz/fail', [\App\Http\Controllers\Api\PaymentController::class, 'sslCommerzFail'])->name('payment.fail');
     Route::match(['get', 'post'], 'ssl-commerz/cancel', [\App\Http\Controllers\Api\PaymentController::class, 'sslCommerzCancel'])->name('payment.cancel');
-    Route::get('{orderNumber}/status', [\App\Http\Controllers\Api\PaymentController::class, 'status']);
+
+    // Polled by the browser while a payment settles — this one IS throttled, so
+    // the callback exemption above cannot be used to enumerate order numbers.
+    Route::get('{orderNumber}/status', [\App\Http\Controllers\Api\PaymentController::class, 'status'])
+        ->middleware('throttle:public-read');
 });
 
 // Authenticated Customer Routes
-Route::middleware('auth:sanctum')->group(function () {
+// Keyed by user id, so one customer's activity cannot throttle another.
+Route::middleware(['auth:sanctum', 'throttle:api'])->group(function () {
     // Auth
     Route::post('auth/logout', [\App\Http\Controllers\Api\AuthController::class, 'logout']);
     Route::get('auth/user', [\App\Http\Controllers\Api\AuthController::class, 'user']);
@@ -124,9 +141,15 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::get('{orderNumber}/invoice', [\App\Http\Controllers\Api\OrderController::class, 'invoice']);
     });
 
-    // Payments
-    Route::post('payments/{orderNumber}/retry', [\App\Http\Controllers\Api\PaymentController::class, 'retry']);
-    Route::post('payments/{orderNumber}/pay-preorder-balance', [\App\Http\Controllers\Api\PaymentController::class, 'payPreorderBalance']);
+    // Payments — money-moving, so they take the stricter 'checkout' budget.
+    // The parent group's 'throttle:api' must be dropped first: when two throttle
+    // middlewares stack, the outer one wins and the stricter limit never applies.
+    Route::middleware('throttle:checkout')
+        ->withoutMiddleware('throttle:api')
+        ->group(function () {
+            Route::post('payments/{orderNumber}/retry', [\App\Http\Controllers\Api\PaymentController::class, 'retry']);
+            Route::post('payments/{orderNumber}/pay-preorder-balance', [\App\Http\Controllers\Api\PaymentController::class, 'payPreorderBalance']);
+        });
 
     // Reviews
     Route::prefix('reviews')->group(function () {
@@ -180,7 +203,9 @@ Route::middleware('auth:sanctum')->group(function () {
 });
 
 // Admin Routes
-Route::prefix('admin')->middleware(['auth:sanctum', 'admin'])->group(function () {
+// Authenticated staff on dashboard screens fan out into many parallel reads;
+// keyed by user id, so a busy admin cannot throttle the storefront.
+Route::prefix('admin')->middleware(['auth:sanctum', 'admin', 'throttle:admin'])->group(function () {
     // Dashboard
     Route::get('dashboard', [\App\Http\Controllers\Api\Admin\ReportController::class, 'dashboard']);
 
