@@ -44,14 +44,11 @@ class ShippingController extends Controller
     {
         $validated = $request->validate([
             'name' => 'required|string|max:255',
-            'method' => 'required|in:shah_sports_team,pathao_courier',
+            'method' => 'required|in:shah_sports_team,pathao_courier,standard',
             'shipping_class_id' => 'nullable|exists:shipping_classes,id',
-            'zone' => 'nullable|string|max:100',
             'base_cost' => 'required|numeric|min:0',
-            'per_kg_cost' => 'nullable|numeric|min:0',
-            'min_weight' => 'nullable|numeric|min:0',
-            'max_weight' => 'nullable|numeric|min:0',
-            'free_shipping_threshold' => 'nullable|numeric|min:0',
+            'free_shipping_min_order' => 'nullable|numeric|min:0',
+            'delivery_time' => 'nullable|string|max:100',
             'is_active' => 'nullable|boolean',
         ]);
 
@@ -59,12 +56,9 @@ class ShippingController extends Controller
             'name' => $validated['name'],
             'method' => $validated['method'],
             'shipping_class_id' => $validated['shipping_class_id'] ?? null,
-            'zone' => $validated['zone'] ?? null,
             'base_cost' => $validated['base_cost'],
-            'per_kg_cost' => $validated['per_kg_cost'] ?? 0,
-            'min_weight' => $validated['min_weight'] ?? null,
-            'max_weight' => $validated['max_weight'] ?? null,
-            'free_shipping_threshold' => $validated['free_shipping_threshold'] ?? null,
+            'free_shipping_min_order' => $validated['free_shipping_min_order'] ?? 0,
+            'delivery_time' => $validated['delivery_time'] ?? null,
             'is_active' => $validated['is_active'] ?? true,
         ]);
 
@@ -111,14 +105,11 @@ class ShippingController extends Controller
 
         $validated = $request->validate([
             'name' => 'sometimes|string|max:255',
-            'method' => 'sometimes|in:shah_sports_team,pathao_courier',
+            'method' => 'sometimes|in:shah_sports_team,pathao_courier,standard',
             'shipping_class_id' => 'nullable|exists:shipping_classes,id',
-            'zone' => 'nullable|string|max:100',
             'base_cost' => 'sometimes|numeric|min:0',
-            'per_kg_cost' => 'nullable|numeric|min:0',
-            'min_weight' => 'nullable|numeric|min:0',
-            'max_weight' => 'nullable|numeric|min:0',
-            'free_shipping_threshold' => 'nullable|numeric|min:0',
+            'free_shipping_min_order' => 'sometimes|numeric|min:0',
+            'delivery_time' => 'nullable|string|max:100',
             'is_active' => 'nullable|boolean',
         ]);
 

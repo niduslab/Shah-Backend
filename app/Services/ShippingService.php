@@ -72,22 +72,6 @@ class ShippingService implements ShippingServiceInterface
         $availableMethods = $this->getAvailableMethods($shippingGroups['default_shipping'], $address);
         $costs = [];
 
-        // Add standard shipping method
-        $standardCost = $this->calculateStandardShippingCost($shippingGroups['default_shipping'], $address, $subtotal);
-        $totalStandardCost = $standardCost + $customShippingCost;
-        
-        $costs[self::METHOD_STANDARD] = [
-            'code' => self::METHOD_STANDARD,
-            'name' => 'Standard Shipping',
-            'description' => 'Free shipping on orders over 1000 BDT',
-            'cost' => round($totalStandardCost, 2),
-            'base_shipping_cost' => round($standardCost, 2),
-            'custom_shipping_cost' => round($customShippingCost, 2),
-            'delivery_time' => '3-5 business days',
-            'free_shipping_min_order' => 1000,
-            'is_free' => $totalStandardCost == 0,
-        ];
-
         foreach ($availableMethods as $method) {
             $rate = $this->getApplicableRate($method['code'], $address, $shippingGroups['default_shipping']);
             
@@ -132,6 +116,20 @@ class ShippingService implements ShippingServiceInterface
         $totalWeight = $this->calculateTotalWeight($items);
         $hasLargeItems = $this->hasLargeItems($items);
 
+        // Standard Shipping - always available when an active rate exists
+        $standardRate = ShippingRate::where('method', self::METHOD_STANDARD)
+            ->where('is_active', true)
+            ->first();
+
+        if ($standardRate) {
+            $methods[] = [
+                'code' => self::METHOD_STANDARD,
+                'name' => $standardRate->name,
+                'description' => $this->describeRate($standardRate, 'Standard delivery'),
+                'recommended' => false,
+            ];
+        }
+
         // Shah Sports Team - available for heavy/large items and local delivery
         $shahSportsRate = ShippingRate::where('method', self::METHOD_SHAH_SPORTS_TEAM)
             ->where('is_active', true)
@@ -141,7 +139,7 @@ class ShippingService implements ShippingServiceInterface
             $methods[] = [
                 'code' => self::METHOD_SHAH_SPORTS_TEAM,
                 'name' => 'Shah Sports Team Delivery',
-                'description' => 'Our own delivery team for heavy and large items',
+                'description' => $this->describeRate($shahSportsRate, 'Our own delivery team for heavy and large items'),
                 'recommended' => $totalWeight > self::HEAVY_WEIGHT_THRESHOLD || $hasLargeItems,
             ];
         }
@@ -155,12 +153,29 @@ class ShippingService implements ShippingServiceInterface
             $methods[] = [
                 'code' => self::METHOD_PATHAO_COURIER,
                 'name' => 'Pathao Courier',
-                'description' => 'Fast and reliable courier service for standard deliveries',
+                'description' => $this->describeRate($pathaoRate, 'Fast and reliable courier service for standard deliveries'),
                 'recommended' => $totalWeight <= self::HEAVY_WEIGHT_THRESHOLD && !$hasLargeItems,
             ];
         }
 
         return $methods;
+    }
+
+    /**
+     * Build a method description from its rate. Only mentions free shipping when
+     * the rate actually has a threshold configured.
+     *
+     * @param ShippingRate $rate
+     * @param string $fallback
+     * @return string
+     */
+    protected function describeRate(ShippingRate $rate, string $fallback): string
+    {
+        if ($rate->free_shipping_min_order > 0) {
+            return 'Free shipping on orders over ' . number_format((float) $rate->free_shipping_min_order, 0) . ' BDT';
+        }
+
+        return $fallback;
     }
 
     /**
@@ -387,12 +402,14 @@ class ShippingService implements ShippingServiceInterface
             ->unique()
             ->toArray();
 
-        // Try to find rate matching shipping class (prioritize most specific)
+        // A cart can hold several shipping classes (e.g. one standard item and one
+        // heavy item). Charge the highest applicable rate so a heavy item is never
+        // shipped at a lighter class's price.
         if (!empty($shippingClassIds)) {
             $rate = ShippingRate::where('method', $method)
                 ->where('is_active', true)
                 ->whereIn('shipping_class_id', $shippingClassIds)
-                ->orderByRaw('CASE WHEN shipping_class_id IS NOT NULL THEN 1 ELSE 2 END')
+                ->orderByDesc('base_cost')
                 ->first();
 
             if ($rate) {
@@ -400,10 +417,12 @@ class ShippingService implements ShippingServiceInterface
             }
         }
 
-        // Fall back to default rate (no shipping class)
+        // Fall back to the method's class-less rate (covers products with no
+        // shipping class assigned).
         return ShippingRate::where('method', $method)
             ->where('is_active', true)
             ->whereNull('shipping_class_id')
+            ->orderBy('base_cost')
             ->first();
     }
 
@@ -434,6 +453,31 @@ class ShippingService implements ShippingServiceInterface
 
         // Fallback: Simple weight-based calculation
         return $this->calculateSimpleWeightCost($baseCost, $totalWeight, $rate->method);
+    }
+
+    /**
+     * Calculate simple weight-based cost (fallback).
+     *
+     * @param float $baseCost
+     * @param float $totalWeight
+     * @param string $method
+     * @return float
+     */
+    protected function calculateSimpleWeightCost(float $baseCost, float $totalWeight, string $method): float
+    {
+        if ($totalWeight <= 1) {
+            return $baseCost;
+        }
+
+        // Cost per additional kg
+        $costPerKg = match ($method) {
+            self::METHOD_SHAH_SPORTS_TEAM => 20,
+            self::METHOD_PATHAO_COURIER => 15,
+            default => 10,
+        };
+
+        $additionalKg = ceil($totalWeight - 1);
+        return $baseCost + ($additionalKg * $costPerKg);
     }
 
     /**
@@ -468,31 +512,6 @@ class ShippingService implements ShippingServiceInterface
     }
 
     /**
-     * Calculate simple weight-based cost (fallback).
-     * 
-     * @param float $baseCost
-     * @param float $totalWeight
-     * @param string $method
-     * @return float
-     */
-    protected function calculateSimpleWeightCost(float $baseCost, float $totalWeight, string $method): float
-    {
-        if ($totalWeight <= 1) {
-            return $baseCost;
-        }
-
-        // Cost per additional kg
-        $costPerKg = match ($method) {
-            self::METHOD_SHAH_SPORTS_TEAM => 20,
-            self::METHOD_PATHAO_COURIER => 15,
-            default => 10,
-        };
-
-        $additionalKg = ceil($totalWeight - 1);
-        return $baseCost + ($additionalKg * $costPerKg);
-    }
-
-    /**
      * Get shipping cost for a specific method.
      * 
      * @param string $method
@@ -516,11 +535,6 @@ class ShippingService implements ShippingServiceInterface
             return $customShippingCost;
         }
         
-        // Handle standard shipping method
-        if ($method === self::METHOD_STANDARD) {
-            return $this->calculateStandardShippingCost($shippingGroups['default_shipping'], $address, $subtotal) + $customShippingCost;
-        }
-        
         $totalWeight = $this->calculateTotalWeight($shippingGroups['default_shipping']);
         
         $rate = $this->getApplicableRate($method, $address, $shippingGroups['default_shipping']);
@@ -538,31 +552,6 @@ class ShippingService implements ShippingServiceInterface
         $standardCost = $this->calculateCostFromRate($rate, $totalWeight, $shippingGroups['default_shipping'], $address);
         
         return $standardCost + $customShippingCost;
-    }
-
-    /**
-     * Calculate standard shipping cost.
-     */
-    protected function calculateStandardShippingCost(array $items, ?Address $address = null, float $subtotal = 0): float
-    {
-        // Free shipping for orders above 1000 BDT
-        if ($subtotal >= 1000) {
-            return 0;
-        }
-
-        // Calculate total weight
-        $totalWeight = $this->calculateTotalWeight($items);
-
-        // Weight-based pricing
-        if ($totalWeight <= 1) {
-            return 60; // Up to 1kg
-        } elseif ($totalWeight <= 5) {
-            return 100; // 1-5kg
-        } elseif ($totalWeight <= 10) {
-            return 150; // 5-10kg
-        } else {
-            return 150 + (($totalWeight - 10) * 15); // 15 BDT per additional kg
-        }
     }
 
     /**

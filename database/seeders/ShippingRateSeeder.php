@@ -14,6 +14,18 @@ class ShippingRateSeeder extends Seeder
         $heavyClass = ShippingClass::where('slug', 'heavy-items')->first();
         $oversizedClass = ShippingClass::where('slug', 'oversized')->first();
 
+        // Standard Shipping - no free shipping threshold until an admin sets one
+        ShippingRate::create([
+            'name' => 'Standard Shipping',
+            'shipping_class_id' => null,
+            'method' => 'standard',
+            'country' => 'BD',
+            'delivery_time' => '3-5 business days',
+            'free_shipping_min_order' => 0.00,
+            'base_cost' => 60.00,
+            'is_active' => true,
+        ]);
+
         // Shah Sports Team Delivery - Standard
         ShippingRate::create([
             'name' => 'Shah Sports Team - Standard Delivery',
