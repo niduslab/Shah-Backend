@@ -180,15 +180,19 @@ class ShippingService implements ShippingServiceInterface
 
     /**
      * Assign tracking number to an order.
-     * 
+     *
      * @param Order $order
      * @param string $trackingNumber
+     * @param string|null $carrier
+     * @param string|null $carrierUrl
      * @return void
      */
-    public function assignTrackingNumber(Order $order, string $trackingNumber): void
+    public function assignTrackingNumber(Order $order, string $trackingNumber, ?string $carrier = null, ?string $carrierUrl = null): void
     {
         $order->update([
             'tracking_number' => $trackingNumber,
+            'carrier' => $carrier,
+            'carrier_url' => $carrierUrl,
             'status' => 'shipped',
         ]);
     }
@@ -438,6 +442,12 @@ class ShippingService implements ShippingServiceInterface
     protected function calculateCostFromRate(ShippingRate $rate, float $totalWeight, array $items, ?Address $address): float
     {
         $baseCost = $rate->base_cost;
+
+        // Admin has explicitly disabled weight-based pricing for this rate: charge
+        // the flat base cost regardless of cart weight.
+        if (!$rate->weight_pricing_enabled) {
+            return $baseCost;
+        }
 
         // Try to find applicable weight cost rule
         $weightCostRule = $this->getApplicableWeightCostRule(

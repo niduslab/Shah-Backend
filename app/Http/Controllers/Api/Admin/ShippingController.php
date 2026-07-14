@@ -5,8 +5,10 @@ namespace App\Http\Controllers\Api\Admin;
 use App\Http\Controllers\Controller;
 use App\Models\ShippingClass;
 use App\Models\ShippingRate;
+use App\Models\WeightCostRule;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 
 class ShippingController extends Controller
@@ -16,7 +18,7 @@ class ShippingController extends Controller
      */
     public function index(Request $request): JsonResponse
     {
-        $query = ShippingRate::with('shippingClass');
+        $query = ShippingRate::with(['shippingClass', 'weightCostRules.items']);
 
         if ($request->filled('method')) {
             $query->where('method', $request->method);
@@ -49,6 +51,7 @@ class ShippingController extends Controller
             'base_cost' => 'required|numeric|min:0',
             'free_shipping_min_order' => 'nullable|numeric|min:0',
             'delivery_time' => 'nullable|string|max:100',
+            'weight_pricing_enabled' => 'nullable|boolean',
             'is_active' => 'nullable|boolean',
         ]);
 
@@ -59,6 +62,7 @@ class ShippingController extends Controller
             'base_cost' => $validated['base_cost'],
             'free_shipping_min_order' => $validated['free_shipping_min_order'] ?? 0,
             'delivery_time' => $validated['delivery_time'] ?? null,
+            'weight_pricing_enabled' => $validated['weight_pricing_enabled'] ?? false,
             'is_active' => $validated['is_active'] ?? true,
         ]);
 
@@ -74,7 +78,7 @@ class ShippingController extends Controller
      */
     public function show(int $id): JsonResponse
     {
-        $rate = ShippingRate::with('shippingClass')->find($id);
+        $rate = ShippingRate::with(['shippingClass', 'weightCostRules.items'])->find($id);
 
         if (!$rate) {
             return response()->json([
@@ -110,6 +114,7 @@ class ShippingController extends Controller
             'base_cost' => 'sometimes|numeric|min:0',
             'free_shipping_min_order' => 'sometimes|numeric|min:0',
             'delivery_time' => 'nullable|string|max:100',
+            'weight_pricing_enabled' => 'nullable|boolean',
             'is_active' => 'nullable|boolean',
         ]);
 
@@ -141,6 +146,103 @@ class ShippingController extends Controller
         return response()->json([
             'success' => true,
             'message' => 'Shipping rate deleted successfully.',
+        ]);
+    }
+
+    /**
+     * Get the default (non location-specific) weight cost rule for a shipping rate.
+     */
+    public function weightCostRule(int $id): JsonResponse
+    {
+        $rate = ShippingRate::find($id);
+
+        if (!$rate) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Shipping rate not found.',
+            ], 404);
+        }
+
+        $rule = $rate->weightCostRules()
+            ->whereNull('state')
+            ->whereNull('city')
+            ->with('items')
+            ->first();
+
+        return response()->json([
+            'success' => true,
+            'data' => $rule,
+        ]);
+    }
+
+    /**
+     * Create or replace the default weight cost rule (and its tier items) for a shipping rate.
+     */
+    public function saveWeightCostRule(Request $request, int $id): JsonResponse
+    {
+        $rate = ShippingRate::find($id);
+
+        if (!$rate) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Shipping rate not found.',
+            ], 404);
+        }
+
+        $validated = $request->validate([
+            'weight_pricing_enabled' => 'required|boolean',
+            'shipping_calculation_method' => 'required_if:weight_pricing_enabled,true|in:per_unit,rules',
+            'per_unit_cost' => 'required_if:shipping_calculation_method,per_unit|nullable|numeric|min:0',
+            'default_rule_cost' => 'nullable|numeric|min:0',
+            'items' => 'required_if:shipping_calculation_method,rules|array',
+            'items.*.weight' => 'required_with:items|numeric|min:0.01',
+            'items.*.cost' => 'required_with:items|numeric|min:0',
+        ]);
+
+        $rate->update(['weight_pricing_enabled' => $validated['weight_pricing_enabled']]);
+
+        $rule = $rate->weightCostRules()->whereNull('state')->whereNull('city')->first();
+
+        if (!$validated['weight_pricing_enabled']) {
+            return response()->json([
+                'success' => true,
+                'message' => 'Weight-based pricing disabled.',
+                'data' => $rule?->load('items'),
+            ]);
+        }
+
+        $rule = DB::transaction(function () use ($rate, $rule, $validated) {
+            $rule = $rule ?: new WeightCostRule(['shipping_rate_id' => $rate->id]);
+
+            $rule->fill([
+                'shipping_calculation_method' => $validated['shipping_calculation_method'],
+                'per_unit_cost' => $validated['shipping_calculation_method'] === 'per_unit'
+                    ? ($validated['per_unit_cost'] ?? 0)
+                    : null,
+                'default_rule_cost' => $validated['default_rule_cost'] ?? 0,
+            ]);
+            $rule->save();
+
+            if ($validated['shipping_calculation_method'] === 'rules') {
+                $rule->items()->delete();
+
+                foreach ($validated['items'] as $item) {
+                    $rule->items()->create([
+                        'weight' => $item['weight'],
+                        'cost' => $item['cost'],
+                    ]);
+                }
+            } else {
+                $rule->items()->delete();
+            }
+
+            return $rule;
+        });
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Weight-based pricing saved successfully.',
+            'data' => $rule->load('items'),
         ]);
     }
 

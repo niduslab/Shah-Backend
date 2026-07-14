@@ -289,6 +289,8 @@ Route::prefix('admin')->middleware(['auth:sanctum', 'admin', 'throttle:admin'])-
 
     // Shipping
     Route::apiResource('shipping-rates', \App\Http\Controllers\Api\Admin\ShippingController::class);
+    Route::get('shipping-rates/{id}/weight-cost-rule', [\App\Http\Controllers\Api\Admin\ShippingController::class, 'weightCostRule']);
+    Route::put('shipping-rates/{id}/weight-cost-rule', [\App\Http\Controllers\Api\Admin\ShippingController::class, 'saveWeightCostRule']);
     Route::get('shipping-classes', [\App\Http\Controllers\Api\Admin\ShippingController::class, 'classes']);
     Route::post('shipping-classes', [\App\Http\Controllers\Api\Admin\ShippingController::class, 'storeClass']);
     Route::put('shipping-classes/{id}', [\App\Http\Controllers\Api\Admin\ShippingController::class, 'updateClass']);

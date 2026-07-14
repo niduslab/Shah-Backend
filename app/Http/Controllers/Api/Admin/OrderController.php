@@ -198,9 +198,16 @@ class OrderController extends Controller
 
         $validated = $request->validate([
             'tracking_number' => 'required|string|max:100',
+            'carrier' => 'nullable|string|max:100',
+            'carrier_url' => 'nullable|url|max:2048',
         ]);
 
-        $this->shippingService->assignTrackingNumber($order, $validated['tracking_number']);
+        $this->shippingService->assignTrackingNumber(
+            $order,
+            $validated['tracking_number'],
+            $validated['carrier'] ?? null,
+            $validated['carrier_url'] ?? null
+        );
 
         return response()->json([
             'success' => true,

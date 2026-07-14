@@ -77,7 +77,7 @@ class OrderController extends Controller
     public function track(string $orderNumber): JsonResponse
     {
         $order = Order::where('order_number', $orderNumber)
-            ->select(['order_number', 'status', 'shipping_method', 'tracking_number', 'created_at', 'updated_at'])
+            ->select(['order_number', 'status', 'shipping_method', 'tracking_number', 'carrier', 'carrier_url', 'created_at', 'updated_at'])
             ->first();
 
         if (!$order) {

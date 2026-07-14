@@ -30,6 +30,8 @@ class Order extends Model
         'shipping_state',
         'shipping_zip_code',
         'tracking_number',
+        'carrier',
+        'carrier_url',
         'status',
         'payment_status',
         'notes',

@@ -17,12 +17,14 @@ class ShippingRate extends Model
         'delivery_time',
         'free_shipping_min_order',
         'base_cost',
+        'weight_pricing_enabled',
         'is_active',
     ];
 
     protected $casts = [
         'free_shipping_min_order' => 'decimal:2',
         'base_cost' => 'decimal:2',
+        'weight_pricing_enabled' => 'boolean',
         'is_active' => 'boolean',
     ];
 
@@ -40,44 +42,6 @@ class ShippingRate extends Model
     public function weightCostRules()
     {
         return $this->hasMany(WeightCostRule::class);
-    }
-
-    /**
-     * Calculate shipping cost for given weight and location.
-     */
-    public function calculateCost(float $totalWeight, float $orderAmount, ?string $state = null, ?string $city = null): float
-    {
-        // Check for free shipping
-        if ($this->free_shipping_min_order > 0 && $orderAmount >= $this->free_shipping_min_order) {
-            return 0;
-        }
-
-        // Find applicable weight cost rule
-        $rule = $this->weightCostRules()
-            ->when($state, fn($q) => $q->where('state', $state)->orWhereNull('state'))
-            ->when($city, fn($q) => $q->where('city', $city)->orWhereNull('city'))
-            ->orderByRaw('CASE WHEN city IS NOT NULL THEN 1 WHEN state IS NOT NULL THEN 2 ELSE 3 END')
-            ->first();
-
-        if (!$rule) {
-            return $this->base_cost;
-        }
-
-        if ($rule->shipping_calculation_method === 'per_unit') {
-            return $this->base_cost + ($totalWeight * ($rule->per_unit_cost ?? 0));
-        }
-
-        // Rules-based calculation
-        $ruleItem = $rule->items()
-            ->where('weight', '>=', $totalWeight)
-            ->orderBy('weight')
-            ->first();
-
-        if ($ruleItem) {
-            return $this->base_cost + $ruleItem->cost;
-        }
-
-        return $this->base_cost + ($rule->default_rule_cost ?? 0);
     }
 
     /**
