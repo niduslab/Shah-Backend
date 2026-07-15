@@ -61,6 +61,7 @@ class CouponController extends Controller
             'starts_at' => 'nullable|date',
             'expires_at' => 'nullable|date|after:starts_at',
             'is_active' => 'nullable|boolean',
+            'is_public' => 'nullable|boolean',
             'product_ids' => 'nullable|array',
             'product_ids.*' => 'exists:products,id',
             'brand_ids' => 'nullable|array',
@@ -92,6 +93,7 @@ class CouponController extends Controller
             'starts_at' => $validated['starts_at'] ?? now(),
             'expires_at' => $validated['expires_at'] ?? null,
             'is_active' => $validated['is_active'] ?? true,
+            'is_public' => $validated['is_public'] ?? true,
         ]);
 
         if (!empty($validated['product_ids'])) {
@@ -182,6 +184,7 @@ class CouponController extends Controller
             'starts_at' => 'nullable|date',
             'expires_at' => 'nullable|date',
             'is_active' => 'nullable|boolean',
+            'is_public' => 'nullable|boolean',
             'product_ids' => 'nullable|array',
             'brand_ids' => 'nullable|array',
             'category_ids' => 'nullable|array',

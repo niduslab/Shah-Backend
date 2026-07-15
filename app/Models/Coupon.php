@@ -24,6 +24,7 @@ class Coupon extends Model
         'starts_at',
         'expires_at',
         'is_active',
+        'is_public',
     ];
 
     protected $casts = [
@@ -36,6 +37,7 @@ class Coupon extends Model
         'starts_at' => 'datetime',
         'expires_at' => 'datetime',
         'is_active' => 'boolean',
+        'is_public' => 'boolean',
     ];
 
     /**
@@ -226,5 +228,13 @@ class Coupon extends Model
                 $q->whereNull('usage_limit')
                     ->orWhereColumn('usage_count', '<', 'usage_limit');
             });
+    }
+
+    /**
+     * Scope for publicly listable coupons (excludes secret/hidden coupons).
+     */
+    public function scopePublic($query)
+    {
+        return $query->where('is_public', true);
     }
 }

@@ -166,10 +166,13 @@ class CartController extends Controller
 
     /**
      * Get all available valid coupons for public view.
+     * Secret/hidden coupons (is_public = false) are excluded — they can
+     * still be redeemed via validateCoupon() if the customer has the code.
      */
     public function getAvailableCoupons(): JsonResponse
     {
         $coupons = \App\Models\Coupon::valid()
+            ->public()
             ->select([
                 'id',
                 'code',
