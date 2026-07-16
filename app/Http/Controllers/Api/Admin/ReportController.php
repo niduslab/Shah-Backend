@@ -65,7 +65,12 @@ class ReportController extends Controller
             'success' => true,
             'data' => [
                 'summary' => $summary,
-                'chart_data' => $sales,
+                'sales' => $sales->map(fn($item) => [
+                    'period' => $item->period,
+                    'orders' => $item->order_count,
+                    'revenue' => $item->total_sales,
+                    'average_order_value' => $item->average_order_value,
+                ]),
                 'date_range' => [
                     'from' => $dateFrom,
                     'to' => $dateTo,
@@ -115,8 +120,13 @@ class ReportController extends Controller
         return response()->json([
             'success' => true,
             'data' => [
-                'top_products' => $topProducts,
-                'low_stock' => $lowStock,
+                'products' => $topProducts->map(fn($product, $index) => [
+                    'id' => $product->product_id,
+                    'name' => $product->product_name,
+                    'units_sold' => $product->total_quantity,
+                    'revenue' => $product->total_revenue,
+                    'average_price' => $product->total_revenue > 0 ? $product->total_revenue / $product->total_quantity : 0,
+                ]),
             ],
         ]);
     }
@@ -150,7 +160,7 @@ class ReportController extends Controller
             ->groupBy('user_id')
             ->orderByDesc('total_spent')
             ->limit($limit)
-            ->with('user:id,name,email')
+            ->with('user:id,first_name,last_name,email')
             ->get();
 
         // New customers
@@ -164,7 +174,15 @@ class ReportController extends Controller
         return response()->json([
             'success' => true,
             'data' => [
-                'top_customers' => $topCustomers,
+                'customers' => $topCustomers->map(fn($customer) => [
+                    'id' => $customer->user_id,
+                    'first_name' => $customer->user?->first_name ?? 'N',
+                    'last_name' => $customer->user?->last_name ?? 'A',
+                    'email' => $customer->user?->email ?? 'N/A',
+                    'total_orders' => $customer->order_count,
+                    'total_spent' => $customer->total_spent,
+                    'average_order_value' => $customer->average_order,
+                ]),
                 'new_customers' => $newCustomers,
                 'total_customers' => $totalCustomers,
             ],
@@ -198,10 +216,37 @@ class ReportController extends Controller
             ->orderByDesc('total_stock')
             ->get();
 
+        // Get all products with stock info
+        $allProducts = Product::select([
+            'id',
+            'name',
+            'sku',
+            'quantity',
+            'price',
+            'low_stock_threshold',
+            'category_id'
+        ])->with('category:id,name')->get();
+
+        $items = $allProducts->map(fn($product) => [
+            'id' => $product->id,
+            'name' => $product->name,
+            'sku' => $product->sku,
+            'quantity' => $product->quantity,
+            'price' => $product->price,
+            'category' => $product->category?->name,
+            'stock_status' => $product->quantity == 0 ? 'out_of_stock' : ($product->quantity <= ($product->low_stock_threshold ?? 10) ? 'low_stock' : 'in_stock'),
+        ]);
+
         return response()->json([
             'success' => true,
             'data' => [
-                'summary' => $summary,
+                'summary' => [
+                    'total_products' => $summary['total_products'],
+                    'in_stock' => $summary['total_products'] - $summary['out_of_stock'] - $summary['low_stock'],
+                    'low_stock' => $summary['low_stock'],
+                    'out_of_stock' => $summary['out_of_stock'],
+                ],
+                'items' => $items,
                 'by_category' => $byCategory,
             ],
         ]);
@@ -220,27 +265,19 @@ class ReportController extends Controller
         $dateFrom = $validated['date_from'] ?? now()->subMonth();
         $dateTo = $validated['date_to'] ?? now();
 
-        $statusCounts = Order::whereBetween('created_at', [$dateFrom, $dateTo])
-            ->select('status', DB::raw('COUNT(*) as count'))
+        $statusBreakdown = Order::whereBetween('created_at', [$dateFrom, $dateTo])
+            ->select('status', DB::raw('COUNT(*) as count'), DB::raw('SUM(total_amount) as total_amount'))
             ->groupBy('status')
-            ->pluck('count', 'status');
-
-        $paymentStatusCounts = Order::whereBetween('created_at', [$dateFrom, $dateTo])
-            ->select('payment_status', DB::raw('COUNT(*) as count'))
-            ->groupBy('payment_status')
-            ->pluck('count', 'payment_status');
-
-        $orderTypeCounts = Order::whereBetween('created_at', [$dateFrom, $dateTo])
-            ->select('order_type', DB::raw('COUNT(*) as count'))
-            ->groupBy('order_type')
-            ->pluck('count', 'order_type');
+            ->get();
 
         return response()->json([
             'success' => true,
             'data' => [
-                'by_status' => $statusCounts,
-                'by_payment_status' => $paymentStatusCounts,
-                'by_order_type' => $orderTypeCounts,
+                'status_breakdown' => $statusBreakdown->map(fn($item) => [
+                    'status' => $item->status,
+                    'count' => $item->count,
+                    'total_amount' => $item->total_amount ?? 0,
+                ]),
             ],
         ]);
     }
