@@ -260,9 +260,16 @@ class CatalogService implements CatalogServiceInterface
             $query->where('price', '<=', $filters['max_price']);
         }
 
-        // Filter by stock status
-        if (isset($filters['in_stock']) && $filters['in_stock']) {
-            $query->where('quantity', '>', 0);
+        // Filter by stock status. Query-string values arrive as strings ("false"),
+        // which PHP treats as truthy, so this must be boolean-coerced like
+        // is_preorder below rather than relying on isset() + truthiness.
+        if (isset($filters['in_stock']) && $filters['in_stock'] !== '' && $filters['in_stock'] !== null) {
+            $inStock = filter_var($filters['in_stock'], FILTER_VALIDATE_BOOLEAN, FILTER_NULL_ON_FAILURE);
+            if ($inStock === true) {
+                $query->where('quantity', '>', 0);
+            } elseif ($inStock === false) {
+                $query->where('quantity', '<=', 0);
+            }
         }
 
         // Filter by featured
@@ -431,13 +438,15 @@ class CatalogService implements CatalogServiceInterface
     }
 
     /**
-     * Get products by category.
-     * 
+     * Get products by category, with the same price/stock/sort/pagination
+     * filters supported by searchProducts().
+     *
      * @param int $categoryId
+     * @param array $filters brand_id, min_price, max_price, in_stock, sort_by, sort_order, per_page
      * @param bool $includeSubcategories
      * @return LengthAwarePaginator
      */
-    public function getProductsByCategory(int $categoryId, bool $includeSubcategories = true): LengthAwarePaginator
+    public function getProductsByCategory(int $categoryId, array $filters = [], bool $includeSubcategories = true): LengthAwarePaginator
     {
         $categoryIds = [$categoryId];
 
@@ -445,26 +454,85 @@ class CatalogService implements CatalogServiceInterface
             $categoryIds = array_merge($categoryIds, $this->getSubcategoryIds($categoryId));
         }
 
-        return Product::active()
+        $query = Product::active()
             ->whereIn('category_id', $categoryIds)
-            ->with(['category', 'brand', 'images'])
-            ->orderBy('created_at', 'desc')
-            ->paginate(15);
+            ->with(['category', 'brand', 'images']);
+
+        if (!empty($filters['brand_id'])) {
+            $query->where('brand_id', $filters['brand_id']);
+        }
+
+        $this->applyCommonProductFilters($query, $filters);
+
+        return $query->paginate($filters['per_page'] ?? 15);
     }
 
     /**
-     * Get products by brand.
-     * 
+     * Get products by brand, with the same price/stock/sort/pagination
+     * filters supported by searchProducts().
+     *
      * @param int $brandId
+     * @param array $filters category_id, min_price, max_price, in_stock, sort_by, sort_order, per_page
      * @return LengthAwarePaginator
      */
-    public function getProductsByBrand(int $brandId): LengthAwarePaginator
+    public function getProductsByBrand(int $brandId, array $filters = []): LengthAwarePaginator
     {
-        return Product::active()
+        $query = Product::active()
             ->where('brand_id', $brandId)
-            ->with(['category', 'brand', 'images'])
-            ->orderBy('created_at', 'desc')
-            ->paginate(15);
+            ->with(['category', 'brand', 'images']);
+
+        if (!empty($filters['category_id'])) {
+            $query->where('category_id', $filters['category_id']);
+        }
+
+        $this->applyCommonProductFilters($query, $filters);
+
+        return $query->paginate($filters['per_page'] ?? 15);
+    }
+
+    /**
+     * Shared price/stock/sort filtering used by getProductsByCategory() and
+     * getProductsByBrand(), kept in sync with the equivalent branches in
+     * searchProducts() so category/brand landing pages behave the same way
+     * as the general shop search.
+     */
+    private function applyCommonProductFilters($query, array $filters): void
+    {
+        if (!empty($filters['min_price'])) {
+            $query->where('price', '>=', $filters['min_price']);
+        }
+        if (!empty($filters['max_price'])) {
+            $query->where('price', '<=', $filters['max_price']);
+        }
+
+        if (isset($filters['in_stock']) && $filters['in_stock'] !== '' && $filters['in_stock'] !== null) {
+            $inStock = filter_var($filters['in_stock'], FILTER_VALIDATE_BOOLEAN, FILTER_NULL_ON_FAILURE);
+            if ($inStock === true) {
+                $query->where('quantity', '>', 0);
+            } elseif ($inStock === false) {
+                $query->where('quantity', '<=', 0);
+            }
+        }
+
+        $sortBy = $filters['sort_by'] ?? 'created_at';
+        $sortOrder = $filters['sort_order'] ?? 'desc';
+
+        switch ($sortBy) {
+            case 'price_low':
+                $query->orderBy('price', 'asc');
+                break;
+            case 'price_high':
+                $query->orderBy('price', 'desc');
+                break;
+            case 'name':
+                $query->orderBy('name', $sortOrder);
+                break;
+            case 'newest':
+                $query->orderBy('created_at', 'desc');
+                break;
+            default:
+                $query->orderBy($sortBy, $sortOrder);
+        }
     }
 
     /**

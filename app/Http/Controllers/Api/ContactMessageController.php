@@ -14,11 +14,21 @@ class ContactMessageController extends Controller
      */
     public function store(Request $request)
     {
+        // Honeypot: a hidden field real visitors never see or fill. Bots that
+        // blindly fill every input trip it. Pretend success so they don't
+        // learn to skip the field and don't retry with a different payload.
+        if (filled($request->input('website'))) {
+            return response()->json([
+                'success' => true,
+                'message' => 'Thank you for reaching out! Our team will get back to you soon.',
+            ], 201);
+        }
+
         $validator = Validator::make($request->all(), [
             'first_name' => 'required|string|max:255',
             'last_name' => 'nullable|string|max:255',
             'email' => 'required|email|max:255',
-            'phone' => 'nullable|string|max:20',
+            'phone' => ['nullable', 'string', 'max:20', 'regex:/^[0-9+\-\s()]+$/'],
             'address' => 'nullable|string|max:255',
             'message' => 'required|string|max:5000',
         ]);

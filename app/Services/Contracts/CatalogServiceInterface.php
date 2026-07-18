@@ -29,14 +29,14 @@ interface CatalogServiceInterface
     public function searchProducts(array $filters): LengthAwarePaginator;
 
     /**
-     * Get products by category.
+     * Get products by category, optionally filtered by brand, price, stock, and sort/pagination.
      */
-    public function getProductsByCategory(int $categoryId, bool $includeSubcategories = true): LengthAwarePaginator;
+    public function getProductsByCategory(int $categoryId, array $filters = [], bool $includeSubcategories = true): LengthAwarePaginator;
 
     /**
-     * Get products by brand.
+     * Get products by brand, optionally filtered by category, price, stock, and sort/pagination.
      */
-    public function getProductsByBrand(int $brandId): LengthAwarePaginator;
+    public function getProductsByBrand(int $brandId, array $filters = []): LengthAwarePaginator;
 
     /**
      * Get featured products.
