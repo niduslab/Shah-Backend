@@ -82,6 +82,9 @@ Route::middleware('throttle:public-read')->group(function () {
 
     // Tracking Pixels (Public - active pixels for storefront script injection)
     Route::get('tracking-pixels/active', [\App\Http\Controllers\Api\TrackingPixelController::class, 'active']);
+
+    // Site Settings (Public - contact info, social links, payment banner)
+    Route::get('site-settings', [\App\Http\Controllers\Api\SiteSettingController::class, 'show']);
 });
 
 // Unauthenticated public writes — common spam targets, throttled tightly.
@@ -456,4 +459,8 @@ Route::prefix('admin')->middleware(['auth:sanctum', 'admin', 'throttle:admin'])-
     Route::apiResource('tracking-pixels', \App\Http\Controllers\Api\Admin\TrackingPixelController::class);
     Route::post('tracking-pixels/{id}/toggle', [\App\Http\Controllers\Api\Admin\TrackingPixelController::class, 'toggle']);
     Route::post('tracking-pixels/{id}/verify', [\App\Http\Controllers\Api\Admin\TrackingPixelController::class, 'verify']);
+
+    // Site Settings (Admin) - singleton config: contact info, social links, payment banner
+    Route::get('site-settings', [\App\Http\Controllers\Api\Admin\SiteSettingController::class, 'show']);
+    Route::post('site-settings', [\App\Http\Controllers\Api\Admin\SiteSettingController::class, 'update']);
 });
